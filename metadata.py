@@ -14,12 +14,17 @@ To enable Last.fm bios:
 
 import os
 import re
+import sys
 import requests
 import time
 from dotenv import load_dotenv
 
-# Load .env from the project directory (A:\ThePit\.env when running from A:\)
-load_dotenv()
+# When frozen as .exe, .env lives next to the executable
+if getattr(sys, "frozen", False):
+    _dir = os.environ.get("THEPIT_APP_DIR", os.path.dirname(sys.executable))
+    load_dotenv(os.path.join(_dir, ".env"))
+else:
+    load_dotenv()
 
 LASTFM_API_KEY    = os.environ.get("LASTFM_API_KEY", "")
 LASTFM_SECRET     = os.environ.get("LASTFM_SHARED_SECRET", "")  # needed if you add scrobbling later

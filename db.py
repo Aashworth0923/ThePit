@@ -1,8 +1,15 @@
 import sqlite3
 import re
+import sys
+import os
 from datetime import datetime
 
-DB_FILE = "metal_releases.db"
+# When frozen as .exe, database lives next to the executable, not in the bundle
+if getattr(sys, "frozen", False):
+    _dir = os.environ.get("THEPIT_APP_DIR", os.path.dirname(sys.executable))
+    DB_FILE = os.path.join(_dir, "metal_releases.db")
+else:
+    DB_FILE = "metal_releases.db"
 
 
 def get_db():

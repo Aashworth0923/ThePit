@@ -48,17 +48,41 @@ header {
   letter-spacing: 4px;
   color: var(--accent);
 }
-nav a {
+nav { display: flex; gap: 2px; }
+.nav-tab {
   color: var(--muted);
   text-decoration: none;
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: color 0.15s;
+  padding: 6px 16px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
 }
-nav a:hover, nav a.active { color: var(--text); }
+.nav-tab:hover          { color: var(--text); }
+.nav-tab.active         { color: var(--text); border-bottom-color: var(--accent); }
+
+/* ── Home page placeholder ── */
+.home-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: calc(100vh - 52px);
+  gap: 12px;
+}
+.home-logo {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 16px;
+  color: var(--accent);
+}
+.home-sub {
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 
 /* ── Main ── */
 main {
