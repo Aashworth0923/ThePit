@@ -12,19 +12,10 @@ Usage:
     python fetch_releases.py --out june_raw.json
 """
 
-import sys
 import json
 import time
 import argparse
 from bs4 import BeautifulSoup
-
-# Fix: Playwright uses asyncio internally. On Windows, when called from a
-# non-main thread (e.g. a Flask request handler), the default ProactorEventLoop
-# fails. Switch to SelectorEventLoop so sync_playwright works in any thread.
-if sys.platform == "win32":
-    import asyncio
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 from playwright.sync_api import sync_playwright
 
 BASE_URL  = "https://www.metal-archives.com"

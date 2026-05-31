@@ -199,6 +199,60 @@ def lists_delete(list_id):
     return redirect(url_for("lists"))
 
 
+def _scrape_subprocess(date_from, date_to):
+    """
+    Run fetch_releases.py in a fresh subprocess so Playwright gets its own
+    main thread and ProactorEventLoop — avoids the NotImplementedError that
+    occurs when sync_playwright() is called from a Flask worker thread.
+    """
+    import subprocess, json, tempfile
+
+    app_dir = os.environ.get("THEPIT_APP_DIR", os.path.dirname(os.path.abspath(__file__)))
+    script  = os.path.join(app_dir, "fetch_releases.py")
+
+    # Write output to a temp file so we don't have to parse stdout
+    tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+    tmp.close()
+    out_path = tmp.name
+
+    env = os.environ.copy()
+    env.setdefault("PLAYWRIGHT_BROWSERS_PATH", os.path.join(app_dir, "browsers"))
+
+    cmd = [sys.executable, script,
+           "--from", date_from, "--to", date_to, "--out", out_path]
+    print(f"[scraper] starting subprocess: {' '.join(cmd)}", flush=True)
+    print(f"[scraper] PLAYWRIGHT_BROWSERS_PATH={env['PLAYWRIGHT_BROWSERS_PATH']}", flush=True)
+
+    proc = subprocess.run(
+        cmd, env=env, cwd=app_dir,
+        capture_output=True, text=True, timeout=300,
+    )
+
+    # Forward subprocess output to our debug log
+    for line in (proc.stdout or "").splitlines()[-20:]:
+        print(f"[scraper] {line}", flush=True)
+    if proc.stderr:
+        for line in proc.stderr.splitlines()[-10:]:
+            print(f"[scraper] ERR: {line}", flush=True)
+
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"Scraper exited {proc.returncode}: {(proc.stderr or '')[-300:]}"
+        )
+
+    try:
+        with open(out_path, encoding="utf-8") as f:
+            releases = json.load(f)
+    finally:
+        try:
+            os.unlink(out_path)
+        except Exception:
+            pass
+
+    print(f"[scraper] subprocess returned {len(releases)} releases", flush=True)
+    return releases
+
+
 @app.route("/get-releases", methods=["GET", "POST"])
 def get_releases():
     if request.method == "POST":
@@ -213,8 +267,7 @@ def get_releases():
             return redirect(url_for("get_releases"))
 
         try:
-            from fetch_releases import run_fetch
-            fetched  = run_fetch(date_from, date_to)
+            fetched  = _scrape_subprocess(date_from, date_to)
             inserted = db.insert_releases(fetched)
             flash(
                 f"Done — {inserted} new release(s) added "
