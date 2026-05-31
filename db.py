@@ -52,6 +52,20 @@ def init_db():
             PRIMARY KEY (list_id, release_id)
         )
     """)
+    # Migrate list_releases to add review columns (safe on existing databases)
+    for col, defn in [
+        ("listen_status", "TEXT"),
+        ("rating",        "INTEGER"),
+        ("thoughts",      "TEXT"),
+        ("completed",     "INTEGER DEFAULT 0"),
+        ("starred",       "INTEGER DEFAULT 0"),
+        ("completed_at",  "TEXT"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE list_releases ADD COLUMN {col} {defn}")
+        except Exception:
+            pass  # column already exists — safe to ignore
+
     conn.commit()
     conn.close()
 
@@ -132,6 +146,55 @@ def create_list(name, description=""):
         conn.execute(
             "INSERT INTO lists (name, description) VALUES (?, ?)",
             (name.strip(), description.strip()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_list_by_id(list_id):
+    conn = get_db()
+    try:
+        return conn.execute("SELECT * FROM lists WHERE id = ?", (list_id,)).fetchone()
+    finally:
+        conn.close()
+
+
+def get_list_releases(list_id):
+    """Return all releases in a list with their review data.
+    Sorted: pending (date asc) first, completed (completed_at desc) last."""
+    conn = get_db()
+    try:
+        return conn.execute("""
+            SELECT r.id, r.artist, r.album, r.type, r.genre, r.release_date,
+                   lr.listen_status, lr.rating, lr.thoughts,
+                   COALESCE(lr.completed, 0) AS completed,
+                   COALESCE(lr.starred,   0) AS starred,
+                   lr.completed_at, lr.added_at
+            FROM list_releases lr
+            JOIN releases r ON r.id = lr.release_id
+            WHERE lr.list_id = ?
+            ORDER BY COALESCE(lr.completed, 0) ASC,
+                     r.release_date ASC,
+                     r.artist ASC
+        """, (list_id,)).fetchall()
+    finally:
+        conn.close()
+
+
+def update_list_release(list_id, release_id, **fields):
+    """Update review fields on a list_releases row. Only touches listed columns."""
+    allowed = {"listen_status", "rating", "thoughts", "completed", "starred", "completed_at"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [list_id, release_id]
+    conn = get_db()
+    try:
+        conn.execute(
+            f"UPDATE list_releases SET {set_clause} WHERE list_id = ? AND release_id = ?",
+            values,
         )
         conn.commit()
     finally:

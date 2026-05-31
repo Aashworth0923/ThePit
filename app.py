@@ -145,6 +145,42 @@ def lists_new():
     return redirect(url_for("lists"))
 
 
+@app.route("/lists/<int:list_id>/view")
+def list_detail(list_id):
+    lst = db.get_list_by_id(list_id)
+    if not lst:
+        flash("List not found.", "error")
+        return redirect(url_for("lists"))
+    releases = db.get_list_releases(list_id)
+    return render_template("list_detail.html", lst=lst, releases=releases)
+
+
+@app.route("/lists/<int:list_id>/release/<int:release_id>/update", methods=["POST"])
+def list_release_update(list_id, release_id):
+    data    = request.get_json(silent=True) or {}
+    updates = {}
+    if "listen_status" in data:
+        updates["listen_status"] = data["listen_status"] or None
+    if "rating" in data:
+        updates["rating"] = int(data["rating"]) if data["rating"] is not None else None
+    if "thoughts" in data:
+        updates["thoughts"] = data["thoughts"] or None
+    if "completed" in data:
+        completed = 1 if data["completed"] else 0
+        updates["completed"] = completed
+        if completed:
+            from datetime import datetime
+            updates["completed_at"] = datetime.now().strftime("%Y-%m-%d")
+        else:
+            updates["completed_at"] = None
+    if "starred" in data:
+        updates["starred"] = 1 if data["starred"] else 0
+    if updates:
+        db.update_list_release(list_id, release_id, **updates)
+        print(f"[list] updated release {release_id} in list {list_id}: {list(updates.keys())}", flush=True)
+    return jsonify({"ok": True})
+
+
 @app.route("/lists/<int:list_id>/add", methods=["POST"])
 def lists_add(list_id):
     data        = request.get_json(silent=True) or {}

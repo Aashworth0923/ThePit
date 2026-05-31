@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+{% block title %}{{ lst.name }} — The Pit{% endblock %}
+
+{% block content %}
+
+{# ── Pre-compute pending / completed split ── #}
+{% set pending   = releases | selectattr("completed", "equalto", 0) | list %}
+{% set completed = releases | selectattr("completed", "equalto", 1) | list %}
+
+<div class="page-header">
+  <div style="display:flex; align-items:center; gap:16px;">
+    <a href="{{ url_for('lists') }}" class="btn btn-ghost btn-sm">← Lists</a>
+    <div>
+      <h1>{{ lst.name }}</h1>
+      <span class="count" id="pending-count">{{ pending|length }} pending</span>
+    </div>
+  </div>
+</div>
+
+{# ── Pending releases ── #}
+<div class="release-list" id="pending-list">
+  {% for r in pending %}
+  {{ _self.release_item(r, lst.id, false) }}
+  {% endfor %}
+
+  {% if not pending %}
+  <div class="list-empty-state" id="all-done-msg">
+    All done — nothing pending.
+  </div>
+  {% endif %}
+</div>
+
+{# ── Completed section ── #}
+<div id="completed-section" style="{{ 'display:none;' if not completed else '' }}">
+  <button class="completed-toggle" onclick="toggleCompletedSection()">
+    <span id="completed-arrow">{{ '▼' if completed else '▶' }}</span>
+    Completed &nbsp;<span id="completed-count" class="count">{{ completed|length }}</span>
+  </button>
+  <div class="release-list release-list-completed" id="completed-list"
+       style="{{ 'display:none;' if not completed else '' }}">
+    {% for r in completed %}
+    {{ _self.release_item(r, lst.id, true) }}
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Drawer ── #}
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div class="drawer-title">
+      <div class="drawer-artist" id="drawer-artist"></div>
+      <div class="drawer-album-name" id="drawer-album-name"></div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">&times;</button>
+  </div>
+  <div class="drawer-art-wrap">
+    <img id="drawer-art" alt="Album art" style="display:none;">
+    <div id="drawer-art-placeholder" class="drawer-art-placeholder" style="display:none;"><span>No Art Found</span></div>
+    <div id="drawer-art-loading" class="drawer-art-placeholder"><span class="pulse">Loading…</span></div>
+  </div>
+  <div class="drawer-meta" id="drawer-meta" style="display:none;">
+    <span id="drawer-type" class="drawer-tag"></span>
+    <span id="drawer-genre" class="drawer-tag drawer-tag-genre"></span>
+    <span id="drawer-date" class="drawer-tag drawer-tag-date"></span>
+  </div>
+  <div class="drawer-bio-section">
+    <div id="drawer-bio-loading" class="drawer-bio-status">Loading description…</div>
+    <p id="drawer-bio-text" style="display:none;"></p>
+    <p id="drawer-bio-empty" class="drawer-bio-status" style="display:none;">No description found.</p>
+  </div>
+</aside>
+
+{# ── Macro: one release item ── #}
+{% macro release_item(r, list_id, is_completed) %}
+<div class="ri {{ 'ri-done' if is_completed else '' }}"
+     id="item-{{ r.id }}"
+     data-id="{{ r.id }}"
+     data-list="{{ list_id }}"
+     data-listen="{{ r.listen_status or '' }}"
+     data-rating="{{ r.rating if r.rating is not none else '' }}"
+     data-thoughts="{{ r.thoughts or '' | e }}"
+     data-completed="{{ '1' if is_completed else '0' }}"
+     data-starred="{{ '1' if r.starred else '0' }}">
+
+  {# Main row #}
+  <div class="ri-main" onclick="toggleReview('{{ r.id }}')">
+
+    {# Complete button #}
+    <button class="ri-circle {{ 'ri-circle-done' if is_completed else '' }}"
+            id="circle-{{ r.id }}"
+            onclick="toggleComplete('{{ r.id }}', event)"
+            title="{{ 'Mark incomplete' if is_completed else 'Mark complete' }}">
+      {% if is_completed %}
+      <svg viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="9" stroke="none"/><path d="M6 10l3 3 5-5" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      {% else %}
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.5" stroke="currentColor" stroke-width="1.5"/></svg>
+      {% endif %}
+    </button>
+
+    {# Release info #}
+    <div class="ri-info">
+      <div class="ri-row1">
+        <button class="album-link ri-album"
+                data-id="{{ r.id }}"
+                data-artist="{{ r.artist | e }}"
+                data-album="{{ r.album | e }}"
+                onclick="openDrawerFromList('{{ r.id }}', {{ r.artist | tojson }}, {{ r.album | tojson }}, event)">
+          {{ r.album }}
+        </button>
+        <span class="ri-artist">{{ r.artist }}</span>
+      </div>
+      <div class="ri-row2">
+        <span class="ri-type">{{ r.type }}</span>
+        <span class="ri-dot">·</span>
+        <span class="ri-genre">{{ r.genre }}</span>
+        <span class="ri-dot">·</span>
+        <span class="ri-date">{{ r.release_date | fmt_date }}</span>
+        {# Show saved review summary if set #}
+        {% if r.listen_status or (r.rating is not none and r.rating != '') %}
+        <span class="ri-dot">·</span>
+        <span class="ri-review-summary">
+          {% if r.listen_status == 'skip' %}⊘{% elif r.listen_status == 'one_song' %}♩{% elif r.listen_status == 'partial' %}◑{% elif r.listen_status == 'full' %}●{% endif %}
+          {% if r.rating is not none and r.rating != '' %}
+            {% set rv = r.rating | int %}
+            {% if rv == -2 %}⬇⬇{% elif rv == -1 %}⬇{% elif rv == 0 %}━{% elif rv == 1 %}⬆{% elif rv == 2 %}⬆⬆{% endif %}
+          {% endif %}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Star button #}
+    <button class="ri-star {{ 'ri-star-on' if r.starred else '' }}"
+            id="star-{{ r.id }}"
+            onclick="toggleStar('{{ r.id }}', event)"
+            title="{{ 'Unstar' if r.starred else 'Star this release' }}">
+      {% if r.starred %}★{% else %}☆{% endif %}
+    </button>
+  </div>
+
+  {# Review sub-panel (hidden until row is clicked) #}
+  <div class="ri-review" id="review-{{ r.id }}" style="display:none;">
+    <div class="rr-question">
+      <div class="rr-label">Play Length</div>
+      <div class="rr-icons" id="listen-icons-{{ r.id }}">
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'skip' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="skip"
+                onclick="selectIcon(this)" title="Full Skip">⊘<span>Skip</span></button>
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'one_song' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="one_song"
+                onclick="selectIcon(this)" title="1 Song & Done">♩<span>1 Song</span></button>
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'partial' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="partial"
+                onclick="selectIcon(this)" title="Partial Listen">◑<span>Partial</span></button>
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'full' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="full"
+                onclick="selectIcon(this)" title="Full Listen">●<span>Full</span></button>
+      </div>
+    </div>
+
+    <div class="rr-divider"></div>
+
+    <div class="rr-question">
+      <div class="rr-label">Rating</div>
+      <div class="rr-icons" id="rating-icons-{{ r.id }}">
+        {% set cur = r.rating if r.rating is not none else '' %}
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if cur | string == '-2' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="-2"
+                onclick="selectIcon(this)" title="Terrible">⬇⬇</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if cur | string == '-1' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="-1"
+                onclick="selectIcon(this)" title="Not good">⬇</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if cur | string == '0' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="0"
+                onclick="selectIcon(this)" title="Meh">━</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if cur | string == '1' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="1"
+                onclick="selectIcon(this)" title="Good">⬆</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if cur | string == '2' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="2"
+                onclick="selectIcon(this)" title="Great">⬆⬆</button>
+      </div>
+    </div>
+
+    <div class="rr-divider"></div>
+
+    <div class="rr-question rr-thoughts">
+      <div class="rr-label">Thoughts</div>
+      <textarea class="rr-textarea" id="thoughts-{{ r.id }}"
+                placeholder="Add notes…">{{ r.thoughts or '' }}</textarea>
+    </div>
+
+    <div class="rr-footer">
+      <button class="btn btn-primary btn-sm" onclick="saveReview('{{ r.id }}')">Save</button>
+      <span class="rr-saved" id="saved-{{ r.id }}" style="display:none;">Saved ✓</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeReview('{{ r.id }}')">Close</button>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+<script>
+  var LIST_ID = {{ lst.id }};
+
+  // ── Review panel ──────────────────────────────────────────────
+  var openReviewId = null;
+
+  function toggleReview(id) {
+    if (openReviewId && openReviewId !== id) closeReview(openReviewId);
+    var panel = document.getElementById('review-' + id);
+    if (!panel) return;
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      openReviewId = id;
+    } else {
+      panel.style.display = 'none';
+      openReviewId = null;
+    }
+  }
+
+  function closeReview(id) {
+    var panel = document.getElementById('review-' + id);
+    if (panel) panel.style.display = 'none';
+    if (openReviewId === id) openReviewId = null;
+  }
+
+  // ── Icon selection (listen / rating) ─────────────────────────
+  function selectIcon(btn) {
+    var group = btn.dataset.group;
+    var rid   = btn.dataset.rid;
+    // Deselect siblings in same group
+    document.querySelectorAll('[data-group="' + group + '"][data-rid="' + rid + '"]')
+            .forEach(function(b) { b.classList.remove('rr-icon-on'); });
+    btn.classList.add('rr-icon-on');
+  }
+
+  function _getIconVal(group, rid) {
+    var active = document.querySelector('[data-group="' + group + '"][data-rid="' + rid + '"].rr-icon-on');
+    return active ? active.dataset.val : null;
+  }
+
+  // ── Save review ───────────────────────────────────────────────
+  function saveReview(id) {
+    var listen   = _getIconVal('listen', id);
+    var rating   = _getIconVal('rating', id);
+    var thoughts = document.getElementById('thoughts-' + id).value;
+
+    _post(LIST_ID, id, {
+      listen_status: listen,
+      rating: rating !== null ? parseInt(rating) : null,
+      thoughts: thoughts
+    }, function() {
+      // Update data attributes on the item
+      var item = document.getElementById('item-' + id);
+      if (item) {
+        if (listen   !== null) item.dataset.listen  = listen;
+        if (rating   !== null) item.dataset.rating  = rating;
+        item.dataset.thoughts = thoughts;
+        _refreshReviewSummary(id, listen, rating);
+      }
+      // Show saved flash
+      var saved = document.getElementById('saved-' + id);
+      if (saved) {
+        saved.style.display = 'inline';
+        setTimeout(function() { saved.style.display = 'none'; }, 2000);
+      }
+      console.log('[list] review saved for release', id);
+    });
+  }
+
+  function _refreshReviewSummary(id, listen, rating) {
+    var item = document.getElementById('item-' + id);
+    if (!item) return;
+    var summary = item.querySelector('.ri-review-summary');
+    var listenSymbols = { skip:'⊘', one_song:'♩', partial:'◑', full:'●' };
+    var ratingSymbols = { '-2':'⬇⬇', '-1':'⬇', '0':'━', '1':'⬆', '2':'⬆⬆' };
+    var parts = [];
+    if (listen && listenSymbols[listen]) parts.push(listenSymbols[listen]);
+    if (rating !== null && ratingSymbols[String(rating)]) parts.push(ratingSymbols[String(rating)]);
+    if (parts.length > 0) {
+      if (!summary) {
+        // Create summary span if not present
+        var row2 = item.querySelector('.ri-row2');
+        if (row2) {
+          var dot  = document.createElement('span'); dot.className  = 'ri-dot'; dot.textContent = '·';
+          var span = document.createElement('span'); span.className = 'ri-review-summary';
+          row2.appendChild(dot); row2.appendChild(span);
+          summary = span;
+        }
+      }
+      if (summary) summary.textContent = parts.join(' ');
+    }
+  }
+
+  // ── Complete toggle ───────────────────────────────────────────
+  function toggleComplete(id, event) {
+    event.stopPropagation();
+    var item   = document.getElementById('item-' + id);
+    var isDone = item.dataset.completed === '1';
+    var newVal = isDone ? 0 : 1;
+
+    _post(LIST_ID, id, { completed: newVal === 1 }, function() {
+      item.dataset.completed = String(newVal);
+      if (newVal === 1) {
+        _moveToCompleted(id, item);
+      } else {
+        _moveToPending(id, item);
+      }
+      console.log('[list] release', id, newVal === 1 ? 'completed' : 'uncompleted');
+    });
+  }
+
+  function _moveToCompleted(id, item) {
+    closeReview(id);
+    item.classList.add('ri-done');
+    // Update circle
+    var circle = document.getElementById('circle-' + id);
+    if (circle) circle.innerHTML = '<svg viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="9"/><path d="M6 10l3 3 5-5" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (circle) circle.classList.add('ri-circle-done');
+
+    document.getElementById('completed-list').appendChild(item);
+    document.getElementById('completed-section').style.display = '';
+    document.getElementById('completed-list').style.display = '';
+    document.getElementById('completed-arrow').textContent = '▼';
+    _updateCounts();
+  }
+
+  function _moveToPending(id, item) {
+    item.classList.remove('ri-done');
+    var circle = document.getElementById('circle-' + id);
+    if (circle) circle.innerHTML = '<svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.5" stroke="currentColor" stroke-width="1.5"/></svg>';
+    if (circle) circle.classList.remove('ri-circle-done');
+
+    document.getElementById('pending-list').appendChild(item);
+    _updateCounts();
+  }
+
+  function _updateCounts() {
+    var pending   = document.querySelectorAll('#pending-list .ri').length;
+    var completed = document.querySelectorAll('#completed-list .ri').length;
+    var pc = document.getElementById('pending-count');
+    var cc = document.getElementById('completed-count');
+    var ad = document.getElementById('all-done-msg');
+    if (pc) pc.textContent = pending + ' pending';
+    if (cc) cc.textContent = completed;
+    if (ad) ad.style.display = pending === 0 ? 'block' : 'none';
+    if (completed === 0) document.getElementById('completed-section').style.display = 'none';
+  }
+
+  // ── Star toggle ───────────────────────────────────────────────
+  function toggleStar(id, event) {
+    event.stopPropagation();
+    var item     = document.getElementById('item-' + id);
+    var starBtn  = document.getElementById('star-' + id);
+    var isStarred = item.dataset.starred === '1';
+    var newVal    = isStarred ? 0 : 1;
+
+    _post(LIST_ID, id, { starred: newVal === 1 }, function() {
+      item.dataset.starred = String(newVal);
+      if (newVal === 1) {
+        starBtn.textContent = '★';
+        starBtn.classList.add('ri-star-on');
+      } else {
+        starBtn.textContent = '☆';
+        starBtn.classList.remove('ri-star-on');
+      }
+    });
+  }
+
+  // ── Completed section collapse ────────────────────────────────
+  function toggleCompletedSection() {
+    var list  = document.getElementById('completed-list');
+    var arrow = document.getElementById('completed-arrow');
+    if (!list) return;
+    if (list.style.display === 'none') {
+      list.style.display = '';
+      arrow.textContent = '▼';
+    } else {
+      list.style.display = 'none';
+      arrow.textContent = '▶';
+    }
+  }
+
+  // ── HTTP helper ───────────────────────────────────────────────
+  function _post(listId, releaseId, data, onSuccess) {
+    fetch('/lists/' + listId + '/release/' + releaseId + '/update', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(data),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(res) { if (res.ok && onSuccess) onSuccess(); })
+    .catch(function(err) { console.error('[list] save error:', err); });
+  }
+
+  // ── Drawer ────────────────────────────────────────────────────
+  var currentRequest = null;
+
+  function openDrawerFromList(id, artist, album, event) {
+    event.stopPropagation();
+    openDrawer(id, artist, album);
+  }
+
+  function showArtPlaceholder() {
+    document.getElementById('drawer-art').style.display = 'none';
+    document.getElementById('drawer-art-placeholder').style.display = 'flex';
+  }
+
+  function openDrawer(id, artist, album) {
+    if (currentRequest) currentRequest.abort();
+    document.getElementById('drawer-artist').textContent     = artist;
+    document.getElementById('drawer-album-name').textContent = album;
+    document.getElementById('drawer-art').style.display            = 'none';
+    document.getElementById('drawer-art-placeholder').style.display = 'none';
+    document.getElementById('drawer-art-loading').style.display    = 'flex';
+    document.getElementById('drawer-meta').style.display           = 'none';
+    document.getElementById('drawer-bio-text').style.display       = 'none';
+    document.getElementById('drawer-bio-empty').style.display      = 'none';
+    document.getElementById('drawer-bio-loading').style.display    = 'block';
+    document.getElementById('drawer-bio-loading').textContent      = 'Loading description…';
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawer-overlay').classList.add('open');
+
+    var ctrl = new AbortController(); currentRequest = ctrl;
+    fetch('/release/' + id + '/meta', { signal: ctrl.signal })
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) {
+        currentRequest = null;
+        document.getElementById('drawer-art-loading').style.display = 'none';
+        if (data.art_url) {
+          var img = document.getElementById('drawer-art');
+          img.onload = function() { img.style.display = 'block'; };
+          img.onerror = showArtPlaceholder; img.src = data.art_url;
+        } else { showArtPlaceholder(); }
+        if (data.type || data.genre || data.release_date) {
+          document.getElementById('drawer-type').textContent  = data.type         || '';
+          document.getElementById('drawer-genre').textContent = data.genre        || '';
+          document.getElementById('drawer-date').textContent  = data.release_date || '';
+          document.getElementById('drawer-meta').style.display = 'flex';
+        }
+        document.getElementById('drawer-bio-loading').style.display = 'none';
+        if (data.bio) {
+          var el = document.getElementById('drawer-bio-text');
+          el.textContent = data.bio; el.style.display = 'block';
+        } else { document.getElementById('drawer-bio-empty').style.display = 'block'; }
+      })
+      .catch(function(err) {
+        if (err.name === 'AbortError') return;
+        document.getElementById('drawer-art-loading').style.display = 'none';
+        showArtPlaceholder();
+      });
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawer-overlay').classList.remove('open');
+    if (currentRequest) { currentRequest.abort(); currentRequest = null; }
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeDrawer(); if (openReviewId) closeReview(openReviewId); }
+  });
+</script>
+{% endblock %}

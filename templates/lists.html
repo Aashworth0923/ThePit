@@ -31,7 +31,9 @@
     <tbody>
       {% for l in lists %}
       <tr>
-        <td class="list-name">{{ l.name }}</td>
+        <td class="list-name">
+          <a href="{{ url_for('list_detail', list_id=l.id) }}" class="list-name-link">{{ l.name }}</a>
+        </td>
         <td class="col-muted">{{ l.description or '—' }}</td>
         <td class="col-date col-muted">{{ l.created_at | fmt_date }}</td>
         <td style="text-align:center; color:var(--muted)">{{ l.release_count }}</td>
