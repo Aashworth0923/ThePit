@@ -36,7 +36,8 @@ A personal, local desktop app for tracking weekly metal music releases.
 | Get Releases page — date picker | `templates/get_releases.html` | Done |
 | Album art + artist bio on demand | `metadata.py` | Done |
 | Slide-out release drawer | `templates/index.html` | Done |
-| Column filters (date range, type checkboxes) | `templates/index.html` | Done |
+| Column filters — inline panel, date range + type checkboxes | `templates/index.html` | Done |
+| In-app debug log panel (backtick `` ` `` key) | `base.html`, `app.py` | Done |
 | PyWebView native window launcher + auto-updater | `launcher.py` | Done |
 | Dev launcher (C:\, no VeraCrypt) | `dev.bat` | Done |
 | Production launcher (A:\, Desktop shortcut) | `ThePit.bat`, `create_shortcut.ps1` | Done |
@@ -276,12 +277,63 @@ Epics are numbered in intended build order:
 | 2 | **Local App Shell** — Flask app, VS Code tabs, home/releases/lists pages | ✅ Done |
 | 2b | **Rich Metadata Drawer** — album art + bio slide-out panel, stream not store | ✅ Done |
 | 2c | **Native App** — PyWebView launcher, auto-updater, Desktop shortcut | ✅ Done |
-| 3 | **Release Browser / To-Do View** — column filters (date, type), date formatting, Lists tab | 🔄 In progress |
-| 3 cont | — mark listened/skipped/queued, starred, notes per album | Next |
+| 3 | **Release Browser / To-Do View** — filters (date, type, genre), Lists tab, debug panel | 🔄 In progress |
+| 3 cont | — genre top-level filter, mark listened/skipped/queued, starred, notes per album | Next |
 | 4 | **Priority Flagging** — auto-flag by label or genre | Planned |
 | 5 | **Scraper Scheduling** — weekly auto-fetch | Planned |
 | 6 | **Notes & Ratings** — per-album after listening | Planned |
 | 7 | **AI Integration** — Claude API priority scores | Planned |
+
+---
+
+## Filter System
+
+### Architecture
+Filters live in an inline panel that appears above the table when a filter icon (▼) in a column header is clicked. No floating/absolute positioning — the panel is in normal page flow so no z-index or overflow clipping issues.
+
+- One panel open at a time (clicking a second filter icon swaps content)
+- Save applies and closes; clicking same icon again toggles; Escape closes
+- Active filters show as chips below the page header with individual × buttons
+- All filters combine with AND logic and with the text search box
+- Debug panel: press backtick `` ` `` on any page to see client + server logs
+
+### Filter state (JavaScript)
+```javascript
+filters = { dateFrom, dateTo, types: [], search: '' }
+// date comparison uses YYYY-MM-DD string comparison (stored format)
+// display uses MM/DD/YYYY via fmt_date Jinja2 filter
+```
+
+### Planned: Top-level Genre Filter
+Metal Archives uses compound genre strings (e.g. `Black/Death Metal`, `Melodic Death/Thrash Metal`). A deterministic keyword mapping classifies each release into one or more of 17 top-level buckets for filtering. Implemented as `data-primary-genre` attributes on table rows — no DB schema change needed.
+
+**Top-level genre taxonomy:**
+
+| Top Genre | Keywords to match in genre string |
+|---|---|
+| Black | `black` |
+| Death | `death` |
+| Doom/Stoner | `doom`, `stoner` |
+| Sludge | `sludge` |
+| Electronic/Industrial | `electronic`, `industrial` |
+| Experimental/Avant-garde | `avant`, `experimental`, `noise`, `ambient` |
+| Folk/Viking/Pagan | `folk`, `viking`, `pagan` |
+| Gothic | `gothic` |
+| Grindcore | `grindcore`, `grind` |
+| Groove | `groove` |
+| Heavy | `heavy metal` (exact phrase to avoid matching compound sub-genres) |
+| Metalcore/Deathcore | `metalcore`, `deathcore` |
+| Power | `power` |
+| Progressive | `progressive`, `prog` |
+| Speed | `speed` |
+| Symphonic | `symphonic` |
+| Thrash | `thrash` |
+
+**Coverage on June 2026 sample (242 releases, 122 unique genre strings):**
+- Top genres by release count: Black (37), Death (40), Thrash (18), Heavy (17), Power (9), Progressive (15)
+- ~95%+ of releases map to at least one top genre
+- Compound genres (e.g. Black/Death) correctly map to multiple buckets
+- Electronic/Industrial: 0 matches in this sample (rare in MA data)
 
 ---
 
