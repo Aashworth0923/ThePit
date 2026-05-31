@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Get Releases — The Pit{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Get Releases</h1>
+  <a href="{{ url_for('index') }}" class="btn btn-ghost">&larr; Back</a>
+</div>
+
+<div class="card">
+  <p class="card-desc">
+    Fetch releases from Metal Archives for a date range.
+    This opens a browser in the background and may take 30–60 seconds.
+  </p>
+
+  <form method="POST" id="fetch-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="date_from">From</label>
+        <input
+          type="date"
+          id="date_from"
+          name="date_from"
+          min="1960-01-01"
+          max="2100-12-31"
+          required
+        >
+      </div>
+      <div class="form-group">
+        <label for="date_to">To</label>
+        <input
+          type="date"
+          id="date_to"
+          name="date_to"
+          min="1960-01-01"
+          max="2100-12-31"
+          required
+        >
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button type="submit" class="btn btn-primary" id="fetch-btn">
+        Fetch Releases
+      </button>
+      <span id="loading-msg" class="loading-msg" style="display:none;">
+        Fetching… this can take a minute, please wait.
+      </span>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.getElementById('fetch-form').addEventListener('submit', function () {
+    const btn = document.getElementById('fetch-btn');
+    const msg = document.getElementById('loading-msg');
+    btn.disabled = true;
+    btn.textContent = 'Fetching…';
+    msg.style.display = 'inline';
+  });
+</script>
+{% endblock %}

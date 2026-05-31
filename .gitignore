@@ -1,0 +1,20 @@
+# Secrets — never commit these
+.env
+
+# Database — data file, not source code
+metal_releases.db
+
+# Raw data exports
+*.json
+*.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+
+# Playwright browsers
+browsers/
