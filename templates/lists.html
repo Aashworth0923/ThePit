@@ -30,14 +30,12 @@
     </thead>
     <tbody>
       {% for l in lists %}
-      <tr>
-        <td class="list-name">
-          <a href="{{ url_for('list_detail', list_id=l.id) }}" class="list-name-link">{{ l.name }}</a>
-        </td>
+      <tr class="list-row" onclick="window.location='{{ url_for('list_detail', list_id=l.id) }}'">
+        <td class="list-name">{{ l.name }}</td>
         <td class="col-muted">{{ l.description or '—' }}</td>
         <td class="col-date col-muted">{{ l.created_at | fmt_date }}</td>
         <td style="text-align:center; color:var(--muted)">{{ l.release_count }}</td>
-        <td style="text-align:right; padding-right:16px;">
+        <td style="text-align:right; padding-right:16px;" onclick="event.stopPropagation()">
           <form method="POST" action="{{ url_for('lists_delete', list_id=l.id) }}"
                 onsubmit="return confirm('Delete list {{ l.name | e }}?')">
             <button type="submit" class="btn-icon-danger" title="Delete list">✕</button>

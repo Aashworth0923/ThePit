@@ -383,6 +383,11 @@ main {
   overflow-y: auto;
 }
 
+/* ── Clickable list rows ── */
+.list-row          { cursor: pointer; }
+.list-row:hover td { background: var(--surface2); }
+.list-name         { font-weight: 500; }
+
 /* ── List name link ── */
 .list-name-link {
   color: var(--text);

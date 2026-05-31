@@ -1,0 +1,127 @@
+{# Partial: one release item in a list.
+   Expects variables: r (release row), is_done (bool), LIST_ID (via JS) #}
+{% set rating_val = r.rating if r.rating is not none else '' %}
+
+<div class="ri {{ 'ri-done' if is_done else '' }}"
+     id="item-{{ r.id }}"
+     data-id="{{ r.id }}"
+     data-listen="{{ r.listen_status or '' }}"
+     data-rating="{{ rating_val }}"
+     data-thoughts="{{ r.thoughts or '' | e }}"
+     data-completed="{{ '1' if is_done else '0' }}"
+     data-starred="{{ '1' if r.starred else '0' }}">
+
+  {# ── Main row ── #}
+  <div class="ri-main" onclick="toggleReview('{{ r.id }}')">
+
+    <button class="ri-circle {{ 'ri-circle-done' if is_done else '' }}"
+            id="circle-{{ r.id }}"
+            onclick="toggleComplete('{{ r.id }}', event)"
+            title="{{ 'Mark incomplete' if is_done else 'Mark complete' }}">
+      {% if is_done %}
+      <svg viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="9"/><path d="M6 10l3 3 5-5" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      {% else %}
+      <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.5" stroke="currentColor" stroke-width="1.5"/></svg>
+      {% endif %}
+    </button>
+
+    <div class="ri-info">
+      <div class="ri-row1">
+        <button class="ri-album"
+                onclick="openDrawerFromList('{{ r.id }}', {{ r.artist | tojson }}, {{ r.album | tojson }}, event)">
+          {{ r.album }}
+        </button>
+        <span class="ri-artist">{{ r.artist }}</span>
+      </div>
+      <div class="ri-row2">
+        <span class="ri-type">{{ r.type }}</span>
+        <span class="ri-dot">·</span>
+        <span class="ri-genre">{{ r.genre }}</span>
+        <span class="ri-dot">·</span>
+        <span class="ri-date">{{ r.release_date | fmt_date }}</span>
+        {% if r.listen_status or (rating_val != '') %}
+        <span class="ri-dot">·</span>
+        <span class="ri-review-summary">
+          {%- if r.listen_status == 'skip' %}⊘
+          {%- elif r.listen_status == 'one_song' %}♩
+          {%- elif r.listen_status == 'partial' %}◑
+          {%- elif r.listen_status == 'full' %}●
+          {%- endif %}
+          {%- if rating_val != '' -%}
+            {%- set rv = rating_val | int -%}
+            {%- if rv == -2 %} ⬇⬇{%- elif rv == -1 %} ⬇{%- elif rv == 0 %} ━{%- elif rv == 1 %} ⬆{%- elif rv == 2 %} ⬆⬆{%- endif %}
+          {%- endif %}
+        </span>
+        {% else %}
+        <span class="ri-review-summary"></span>
+        {% endif %}
+      </div>
+    </div>
+
+    <button class="ri-star {{ 'ri-star-on' if r.starred else '' }}"
+            id="star-{{ r.id }}"
+            onclick="toggleStar('{{ r.id }}', event)"
+            title="{{ 'Unstar' if r.starred else 'Star' }}">
+      {{ '★' if r.starred else '☆' }}
+    </button>
+  </div>
+
+  {# ── Review sub-panel ── #}
+  <div class="ri-review" id="review-{{ r.id }}" style="display:none;">
+
+    <div class="rr-question">
+      <div class="rr-label">Play Length</div>
+      <div class="rr-icons">
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'skip' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="skip"
+                onclick="selectIcon(this)" title="Full Skip">⊘<span>Skip</span></button>
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'one_song' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="one_song"
+                onclick="selectIcon(this)" title="1 Song & Done">♩<span>1 Song</span></button>
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'partial' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="partial"
+                onclick="selectIcon(this)" title="Partial Listen">◑<span>Partial</span></button>
+        <button class="rr-icon {{ 'rr-icon-on' if r.listen_status == 'full' else '' }}"
+                data-group="listen" data-rid="{{ r.id }}" data-val="full"
+                onclick="selectIcon(this)" title="Full Listen">●<span>Full</span></button>
+      </div>
+    </div>
+
+    <div class="rr-divider"></div>
+
+    <div class="rr-question">
+      <div class="rr-label">Rating</div>
+      <div class="rr-icons">
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if rating_val | string == '-2' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="-2"
+                onclick="selectIcon(this)" title="Terrible">⬇⬇</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if rating_val | string == '-1' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="-1"
+                onclick="selectIcon(this)" title="Not good">⬇</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if rating_val | string == '0' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="0"
+                onclick="selectIcon(this)" title="Meh">━</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if rating_val | string == '1' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="1"
+                onclick="selectIcon(this)" title="Good">⬆</button>
+        <button class="rr-icon rr-rating {{ 'rr-icon-on' if rating_val | string == '2' else '' }}"
+                data-group="rating" data-rid="{{ r.id }}" data-val="2"
+                onclick="selectIcon(this)" title="Great">⬆⬆</button>
+      </div>
+    </div>
+
+    <div class="rr-divider"></div>
+
+    <div class="rr-question rr-thoughts">
+      <div class="rr-label">Thoughts</div>
+      <textarea class="rr-textarea" id="thoughts-{{ r.id }}"
+                placeholder="Add notes…">{{ r.thoughts or '' }}</textarea>
+    </div>
+
+    <div class="rr-footer">
+      <button class="btn btn-primary btn-sm" onclick="saveReview('{{ r.id }}')">Save</button>
+      <span class="rr-saved" id="saved-{{ r.id }}" style="display:none;">Saved ✓</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeReview('{{ r.id }}')">Close</button>
+    </div>
+  </div>
+</div>
