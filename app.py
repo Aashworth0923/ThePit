@@ -89,6 +89,65 @@ def primary_genres_filter(genre_str):
     return _map_primary_genres(genre_str)
 
 
+# ── Art image proxy ──────────────────────────────────────────────────────────
+# Some CDNs (Last.fm, Bandcamp) use hotlink protection: the image returns 403
+# when loaded directly from a browser pointing at localhost. Fetching server-side
+# with the right Referer bypasses this, then we stream the bytes to the browser.
+
+_PROXY_HOSTS = (
+    "lastfm.freetls.fastly.net",  # Last.fm CDN
+    "f4.bcbits.com",              # Bandcamp art CDN
+)
+
+_PROXY_REFERERS = {
+    "lastfm.freetls.fastly.net": "https://www.last.fm/",
+    "f4.bcbits.com":             "https://bandcamp.com/",
+}
+
+
+def _proxy_url(url):
+    """Return a local proxy URL for CDN hosts known to use hotlink protection."""
+    if not url:
+        return url
+    from urllib.parse import urlparse, quote
+    if urlparse(url).netloc in _PROXY_HOSTS:
+        return f"/api/art-proxy?url={quote(url, safe='')}"
+    return url
+
+
+@app.route("/api/art-proxy")
+def art_proxy():
+    """Fetch an external art image server-side and stream it to the browser."""
+    import requests as req
+    from urllib.parse import urlparse
+    url  = request.args.get("url", "").strip()
+    host = urlparse(url).netloc if url else ""
+
+    if not url or not url.startswith("https://") or host not in _PROXY_HOSTS:
+        return "", 400
+
+    referer = _PROXY_REFERERS.get(host, "https://www.google.com/")
+    try:
+        resp = req.get(url, timeout=10, headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Referer": referer,
+        })
+        print(f"[art-proxy] {host} → {resp.status_code}", flush=True)
+        if resp.status_code == 200:
+            from flask import Response
+            return Response(
+                resp.content,
+                content_type=resp.headers.get("Content-Type", "image/jpeg"),
+            )
+    except Exception as e:
+        print(f"[art-proxy] error: {e}", flush=True)
+    return "", 404
+
+
 @app.route("/favicon.ico")
 def favicon():
     folder = os.environ.get("THEPIT_APP_DIR", ".")
@@ -310,7 +369,7 @@ def release_meta(release_id):
             "type":         release["type"],
             "genre":        release["genre"],
             "release_date": release["release_date"],
-            "art_url":      meta["art_url"],
+            "art_url":      _proxy_url(meta["art_url"]),
             "bio":          meta["bio"],
             "cached":       meta["cached"],
         })
