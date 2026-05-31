@@ -150,6 +150,13 @@
   // ── Filter state ──────────────────────────────────────────────
   var filters = { dateFrom: null, dateTo: null, types: [], search: '' };
   var allRows = Array.from(document.querySelectorAll('#releases-table tbody tr'));
+  console.log('[FILTER] page loaded —', allRows.length, 'rows found in table');
+  if (allRows.length > 0) {
+    var sample = allRows[0];
+    console.log('[FILTER] sample row data-date="' + sample.dataset.date + '"'
+      + ' data-type="' + sample.dataset.type + '"'
+      + ' data-genre="' + sample.dataset.genre + '"');
+  }
 
   // ── Text search ───────────────────────────────────────────────
   var searchInput = document.getElementById('search');
@@ -189,6 +196,7 @@
   function applyDateFilter() {
     filters.dateFrom = document.getElementById('fp-date-from').value || null;
     filters.dateTo   = document.getElementById('fp-date-to').value   || null;
+    console.log('[FILTER] date filter set — from:', filters.dateFrom, 'to:', filters.dateTo);
     closeAllPopovers();
     applyAllFilters();
   }
@@ -197,6 +205,7 @@
   function applyTypeFilter() {
     filters.types = Array.from(document.querySelectorAll('.type-check:checked'))
                          .map(function(cb) { return cb.value; });
+    console.log('[FILTER] type filter set —', filters.types);
     closeAllPopovers();
     applyAllFilters();
   }
@@ -227,22 +236,26 @@
   // ── Core filter engine ────────────────────────────────────────
   function applyAllFilters() {
     var visible = 0;
+    var hiddenByDate = 0, hiddenByType = 0, hiddenBySearch = 0;
+
     allRows.forEach(function(row) {
       var show = true;
 
-      // Date range
-      if (filters.dateFrom && row.dataset.date < filters.dateFrom) show = false;
-      if (filters.dateTo   && row.dataset.date > filters.dateTo)   show = false;
-
-      // Type (any of the checked values)
-      if (filters.types.length > 0 && filters.types.indexOf(row.dataset.type) === -1) show = false;
-
-      // Text search across all cells
-      if (filters.search && row.textContent.toLowerCase().indexOf(filters.search) === -1) show = false;
+      if (filters.dateFrom && row.dataset.date < filters.dateFrom) { show = false; hiddenByDate++; }
+      if (filters.dateTo   && row.dataset.date > filters.dateTo)   { show = false; hiddenByDate++; }
+      if (filters.types.length > 0 && filters.types.indexOf(row.dataset.type) === -1) { show = false; hiddenByType++; }
+      if (filters.search && row.textContent.toLowerCase().indexOf(filters.search) === -1) { show = false; hiddenBySearch++; }
 
       row.style.display = show ? '' : 'none';
       if (show) visible++;
     });
+
+    console.log('[FILTER] applyAllFilters result:'
+      + ' visible=' + visible
+      + ' hiddenByDate=' + hiddenByDate
+      + ' hiddenByType=' + hiddenByType
+      + ' hiddenBySearch=' + hiddenBySearch
+      + ' | state=' + JSON.stringify(filters));
 
     updateCountLabel(visible);
     updateFilterBar();

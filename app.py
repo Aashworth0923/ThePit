@@ -1,8 +1,26 @@
 import sys
 import os
+import builtins
+from collections import deque
 from flask import Flask, render_template, redirect, url_for, request, flash, send_from_directory, jsonify
 import db
 import metadata
+
+# ── Server-side log capture ───────────────────────────────────────────────────
+# All print() calls anywhere in the app are captured here and exposed
+# via /api/logs so the in-app debug panel can display them.
+_log_buffer = deque(maxlen=400)
+_log_seq    = 0
+_orig_print = builtins.print
+
+def _capturing_print(*args, **kwargs):
+    global _log_seq
+    msg = " ".join(str(a) for a in args)
+    _log_seq += 1
+    _log_buffer.append({"seq": _log_seq, "level": "log", "msg": msg})
+    _orig_print(*args, **kwargs)
+
+builtins.print = _capturing_print
 
 # ── Path setup for PyInstaller frozen builds ──────────────────────────────────
 # When packaged as a .exe, templates/static live in the bundle (sys._MEIPASS).
@@ -40,6 +58,13 @@ def favicon():
 @app.route("/health")
 def health():
     return "ok", 200
+
+
+@app.route("/api/logs")
+def api_logs():
+    since = int(request.args.get("since", 0))
+    new_entries = [e for e in _log_buffer if e["seq"] > since]
+    return jsonify({"seq": _log_seq, "entries": new_entries})
 
 
 @app.route("/")
