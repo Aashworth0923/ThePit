@@ -36,6 +36,40 @@ else:
 
 app.secret_key = "thepitlocal"
 
+# ── Genre taxonomy ────────────────────────────────────────────────────────────
+# Each entry: (display_name, slug, [keywords_to_match_in_genre_string])
+# Keyword matching is case-insensitive substring search.
+GENRE_MAP = [
+    ("Black",                  "black",        ["black"]),
+    ("Death",                  "death",        ["death"]),
+    ("Doom / Stoner",          "doom-stoner",  ["doom", "stoner"]),
+    ("Sludge",                 "sludge",       ["sludge"]),
+    ("Electronic / Industrial","electronic",   ["electronic", "industrial"]),
+    ("Experimental",           "experimental", ["avant", "experimental", "noise"]),
+    ("Folk / Viking / Pagan",  "folk",         ["folk", "viking", "pagan"]),
+    ("Gothic",                 "gothic",       ["gothic"]),
+    ("Grindcore",              "grindcore",    ["grindcore"]),
+    ("Groove",                 "groove",       ["groove"]),
+    ("Heavy",                  "heavy",        ["heavy metal"]),
+    ("Metalcore / Deathcore",  "metalcore",    ["metalcore", "deathcore"]),
+    ("Power",                  "power",        ["power"]),
+    ("Progressive",            "progressive",  ["progressive", "prog"]),
+    ("Speed",                  "speed",        ["speed"]),
+    ("Symphonic",              "symphonic",    ["symphonic"]),
+    ("Thrash",                 "thrash",       ["thrash"]),
+]
+
+def _map_primary_genres(genre_str):
+    """Return space-separated slugs for the top-level genres that match."""
+    if not genre_str:
+        return ""
+    lower = genre_str.lower()
+    slugs = []
+    for _, slug, keywords in GENRE_MAP:
+        if any(kw in lower for kw in keywords):
+            slugs.append(slug)
+    return " ".join(slugs)
+
 
 @app.template_filter("fmt_date")
 def fmt_date(value):
@@ -47,6 +81,12 @@ def fmt_date(value):
         return datetime.strptime(value, "%Y-%m-%d").strftime("%m/%d/%Y")
     except ValueError:
         return value
+
+
+@app.template_filter("primary_genres")
+def primary_genres_filter(genre_str):
+    """Return space-separated top-level genre slugs for a raw genre string."""
+    return _map_primary_genres(genre_str)
 
 
 @app.route("/favicon.ico")
@@ -76,7 +116,13 @@ def home():
 def releases():
     all_releases = db.get_all_releases()
     type_values  = db.get_release_types()
-    return render_template("index.html", releases=all_releases, type_values=type_values)
+    all_lists    = db.get_all_lists()
+    genre_map    = [(display, slug) for display, slug, _ in GENRE_MAP]
+    return render_template("index.html",
+                           releases=all_releases,
+                           type_values=type_values,
+                           lists=all_lists,
+                           genre_map=genre_map)
 
 
 @app.route("/lists")
@@ -97,6 +143,17 @@ def lists_new():
     except Exception:
         flash(f'A list named "{name}" already exists.', "error")
     return redirect(url_for("lists"))
+
+
+@app.route("/lists/<int:list_id>/add", methods=["POST"])
+def lists_add(list_id):
+    data        = request.get_json(silent=True) or {}
+    release_ids = data.get("release_ids", [])
+    if not release_ids:
+        return jsonify({"error": "No release IDs provided"}), 400
+    added = db.add_releases_to_list(list_id, release_ids)
+    print(f"[lists] added {added} releases to list {list_id}", flush=True)
+    return jsonify({"added": added})
 
 
 @app.route("/lists/<int:list_id>/delete", methods=["POST"])

@@ -44,6 +44,14 @@ def init_db():
             created_at  TEXT    DEFAULT (date('now'))
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS list_releases (
+            list_id    INTEGER NOT NULL REFERENCES lists(id)    ON DELETE CASCADE,
+            release_id INTEGER NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+            added_at   TEXT    DEFAULT (datetime('now')),
+            PRIMARY KEY (list_id, release_id)
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -128,6 +136,26 @@ def create_list(name, description=""):
         conn.commit()
     finally:
         conn.close()
+
+
+def add_releases_to_list(list_id, release_ids):
+    """Add a batch of release IDs to a list. Returns count of newly added rows."""
+    if not release_ids:
+        return 0
+    conn = get_db()
+    added = 0
+    try:
+        for rid in release_ids:
+            conn.execute(
+                "INSERT OR IGNORE INTO list_releases (list_id, release_id) VALUES (?, ?)",
+                (list_id, int(rid)),
+            )
+            if conn.execute("SELECT changes()").fetchone()[0]:
+                added += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return added
 
 
 def delete_list(list_id):

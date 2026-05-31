@@ -13,29 +13,42 @@
   </div>
 </div>
 
-<!-- ── Active filter chips (shown when any filter is applied) ── -->
+<!-- Active filter chips -->
 <div class="filter-bar" id="filter-bar" style="display:none;">
   <span class="filter-bar-label">Filters</span>
   <div class="filter-chips" id="filter-chips"></div>
   <button class="btn btn-ghost btn-sm" onclick="clearAllFilters()">Clear all</button>
 </div>
 
-<!-- ── Inline filter panel (appears above table when a filter icon is clicked) ── -->
+<!-- Selection action bar (appears when rows are checked) -->
+<div class="selection-bar" id="selection-bar" style="display:none;">
+  <span id="selection-count"></span>
+  <div class="selection-actions">
+    <select id="add-to-list-select">
+      <option value="">Add to list…</option>
+      {% for l in lists %}
+      <option value="{{ l.id }}">{{ l.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="addSelectionToList()">Add</button>
+    <span id="selection-msg" class="selection-msg" style="display:none;"></span>
+    <button class="btn btn-ghost btn-sm" onclick="clearSelection()">Deselect all</button>
+  </div>
+</div>
+
+<!-- Inline filter panel -->
 <div id="filter-panel" class="filter-panel" style="display:none;">
   <div class="fp-header">
     <span id="fp-title"></span>
     <button class="fp-close" onclick="closeFilterPanel()" title="Close">✕</button>
   </div>
 
-  <!-- Date section -->
   <div id="fps-date" class="fps" style="display:none;">
     <div class="fps-fields">
-      <div class="fps-field">
-        <label>From</label>
+      <div class="fps-field"><label>From</label>
         <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31">
       </div>
-      <div class="fps-field">
-        <label>To</label>
+      <div class="fps-field"><label>To</label>
         <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31">
       </div>
     </div>
@@ -45,7 +58,6 @@
     </div>
   </div>
 
-  <!-- Type section -->
   <div id="fps-type" class="fps" style="display:none;">
     <div class="fps-checks">
       {% for t in type_values %}
@@ -59,6 +71,20 @@
       <button class="btn btn-ghost btn-sm"   onclick="clearFilter('type')">Clear</button>
     </div>
   </div>
+
+  <div id="fps-genre" class="fps" style="display:none;">
+    <div class="fps-genre-grid">
+      {% for display, slug in genre_map %}
+      <label class="fps-check-row">
+        <input type="checkbox" class="genre-check" value="{{ slug }}"> {{ display }}
+      </label>
+      {% endfor %}
+    </div>
+    <div class="fps-actions">
+      <button class="btn btn-primary btn-sm" onclick="applyGenreFilter()">Save</button>
+      <button class="btn btn-ghost btn-sm"   onclick="clearFilter('genre')">Clear</button>
+    </div>
+  </div>
 </div>
 
 {% if releases %}
@@ -66,6 +92,9 @@
   <table id="releases-table">
     <thead>
       <tr>
+        <th class="col-cb">
+          <input type="checkbox" id="select-all" title="Select all visible" onchange="toggleSelectAll(this)">
+        </th>
         <th>
           Date
           <button class="filter-icon" id="fi-date" onclick="openFilter('date')" title="Filter by date">
@@ -80,7 +109,12 @@
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
           </button>
         </th>
-        <th>Genre</th>
+        <th>
+          Genre
+          <button class="filter-icon" id="fi-genre" onclick="openFilter('genre')" title="Filter by genre">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
+          </button>
+        </th>
         <th>★</th>
         <th>Listened</th>
         <th>Rating</th>
@@ -91,8 +125,12 @@
       <tr data-date="{{ r.release_date }}"
           data-type="{{ r.type | e }}"
           data-genre="{{ r.genre | e }}"
+          data-primary-genre="{{ r.genre | primary_genres }}"
           data-artist="{{ r.artist | e }}"
           data-album="{{ r.album | e }}">
+        <td class="col-cb">
+          <input type="checkbox" class="row-select" data-id="{{ r.id }}" onchange="toggleRowSelect(this)">
+        </td>
         <td class="col-date">{{ r.release_date | fmt_date }}</td>
         <td class="col-artist">{{ r.artist }}</td>
         <td class="col-album">
@@ -120,10 +158,8 @@
 </div>
 {% endif %}
 
-<!-- Drawer overlay -->
-<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
-
 <!-- Slide-out drawer -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
 <aside class="drawer" id="drawer" aria-label="Release details">
   <div class="drawer-header">
     <div class="drawer-title">
@@ -154,15 +190,12 @@
 
 <script>
   // ── State ─────────────────────────────────────────────────────
-  var filters     = { dateFrom: null, dateTo: null, types: [], search: '' };
+  var filters     = { dateFrom: null, dateTo: null, types: [], genres: [], search: '' };
   var allRows     = Array.from(document.querySelectorAll('#releases-table tbody tr'));
   var activePanel = null;
+  var selectedIds = new Set();
 
-  console.log('[FILTER] page loaded —', allRows.length, 'rows');
-  if (allRows.length > 0) {
-    var s = allRows[0];
-    console.log('[FILTER] sample: data-date="' + s.dataset.date + '" data-type="' + s.dataset.type + '"');
-  }
+  console.log('[FILTER] loaded —', allRows.length, 'rows');
 
   // ── Text search ───────────────────────────────────────────────
   var searchInput = document.getElementById('search');
@@ -174,28 +207,20 @@
   }
 
   // ── Filter panel ──────────────────────────────────────────────
-  var PANEL_TITLES = { date: 'Date Filter', type: 'Type Filter' };
+  var PANEL_TITLES = { date: 'Date Filter', type: 'Type Filter', genre: 'Genre Filter' };
 
   function openFilter(name) {
-    // Toggle: clicking the same icon while panel is open closes it
     if (activePanel === name) { closeFilterPanel(); return; }
-
-    // Swap section content
     document.querySelectorAll('.fps').forEach(function(el) { el.style.display = 'none'; });
-    var section = document.getElementById('fps-' + name);
-    if (!section) return;
-    section.style.display = 'flex';
-
+    var sec = document.getElementById('fps-' + name);
+    if (!sec) return;
+    sec.style.display = 'flex';
     document.getElementById('fp-title').textContent = PANEL_TITLES[name] || name;
     document.getElementById('filter-panel').style.display = 'block';
     activePanel = name;
-
-    // Highlight the active filter icon
     document.querySelectorAll('.filter-icon').forEach(function(b) { b.classList.remove('panel-open'); });
     var icon = document.getElementById('fi-' + name);
     if (icon) icon.classList.add('panel-open');
-
-    console.log('[FILTER] panel opened:', name);
   }
 
   function closeFilterPanel() {
@@ -204,25 +229,26 @@
     activePanel = null;
   }
 
-  // ── Date filter ───────────────────────────────────────────────
+  // ── Apply filters ─────────────────────────────────────────────
   function applyDateFilter() {
     filters.dateFrom = document.getElementById('fp-date-from').value || null;
     filters.dateTo   = document.getElementById('fp-date-to').value   || null;
     console.log('[FILTER] date — from:', filters.dateFrom, 'to:', filters.dateTo);
-    closeFilterPanel();
-    applyAllFilters();
+    closeFilterPanel(); applyAllFilters();
   }
 
-  // ── Type filter ───────────────────────────────────────────────
   function applyTypeFilter() {
-    filters.types = Array.from(document.querySelectorAll('.type-check:checked'))
-                         .map(function(cb) { return cb.value; });
+    filters.types = Array.from(document.querySelectorAll('.type-check:checked')).map(function(cb) { return cb.value; });
     console.log('[FILTER] type —', filters.types);
-    closeFilterPanel();
-    applyAllFilters();
+    closeFilterPanel(); applyAllFilters();
   }
 
-  // ── Clear ─────────────────────────────────────────────────────
+  function applyGenreFilter() {
+    filters.genres = Array.from(document.querySelectorAll('.genre-check:checked')).map(function(cb) { return cb.value; });
+    console.log('[FILTER] genre —', filters.genres);
+    closeFilterPanel(); applyAllFilters();
+  }
+
   function clearFilter(name) {
     if (name === 'date') {
       filters.dateFrom = null; filters.dateTo = null;
@@ -233,48 +259,50 @@
       filters.types = [];
       document.querySelectorAll('.type-check').forEach(function(cb) { cb.checked = false; });
     }
-    closeFilterPanel();
-    applyAllFilters();
+    if (name === 'genre') {
+      filters.genres = [];
+      document.querySelectorAll('.genre-check').forEach(function(cb) { cb.checked = false; });
+    }
+    closeFilterPanel(); applyAllFilters();
   }
 
   function clearAllFilters() {
-    clearFilter('date');
-    clearFilter('type');
+    clearFilter('date'); clearFilter('type'); clearFilter('genre');
     filters.search = '';
     if (searchInput) searchInput.value = '';
-    closeFilterPanel();
-    applyAllFilters();
+    closeFilterPanel(); applyAllFilters();
   }
 
   // ── Core filter engine ────────────────────────────────────────
   function applyAllFilters() {
-    var visible = 0, hDate = 0, hType = 0, hSearch = 0;
+    clearSelection();   // any filter change resets row selection
+    var visible = 0, hDate = 0, hType = 0, hGenre = 0, hSearch = 0;
 
     allRows.forEach(function(row) {
       var show = true;
       if (filters.dateFrom && row.dataset.date < filters.dateFrom) { show = false; hDate++; }
       if (filters.dateTo   && row.dataset.date > filters.dateTo)   { show = false; hDate++; }
       if (filters.types.length > 0 && filters.types.indexOf(row.dataset.type) === -1) { show = false; hType++; }
+      if (filters.genres.length > 0) {
+        var rowGenres = row.dataset.primaryGenre || '';
+        var hasMatch  = filters.genres.some(function(g) { return rowGenres.indexOf(g) !== -1; });
+        if (!hasMatch) { show = false; hGenre++; }
+      }
       if (filters.search && row.textContent.toLowerCase().indexOf(filters.search) === -1) { show = false; hSearch++; }
       row.style.display = show ? '' : 'none';
       if (show) visible++;
     });
 
-    console.log('[FILTER] result: visible=' + visible
-      + ' hDate=' + hDate + ' hType=' + hType + ' hSearch=' + hSearch
-      + ' state=' + JSON.stringify(filters));
-
+    console.log('[FILTER] visible=' + visible + ' hDate=' + hDate + ' hType=' + hType + ' hGenre=' + hGenre + ' hSearch=' + hSearch);
     updateCountLabel(visible);
     updateFilterBar();
     updateFilterIcons();
   }
 
-  // ── UI updates ────────────────────────────────────────────────
   function updateCountLabel(visible) {
     var el = document.getElementById('visible-count');
     if (!el) return;
-    var total = allRows.length;
-    el.textContent = visible === total ? total + ' total' : visible + ' of ' + total;
+    el.textContent = visible === allRows.length ? allRows.length + ' total' : visible + ' of ' + allRows.length;
   }
 
   function fmtDate(iso) {
@@ -286,32 +314,108 @@
   function updateFilterBar() {
     var chips = [];
     if (filters.dateFrom || filters.dateTo) {
-      chips.push({
-        label: 'Date: ' + (filters.dateFrom ? fmtDate(filters.dateFrom) : '…')
-             + ' – ' + (filters.dateTo ? fmtDate(filters.dateTo) : '…'),
-        clear: 'date'
-      });
+      chips.push({ label: 'Date: ' + (filters.dateFrom ? fmtDate(filters.dateFrom) : '…') + ' – ' + (filters.dateTo ? fmtDate(filters.dateTo) : '…'), clear: 'date' });
     }
-    if (filters.types.length > 0) {
-      chips.push({ label: 'Type: ' + filters.types.join(', '), clear: 'type' });
-    }
+    if (filters.types.length > 0)  chips.push({ label: 'Type: '  + filters.types.join(', '),  clear: 'type' });
+    if (filters.genres.length > 0) chips.push({ label: 'Genre: ' + filters.genres.join(', '), clear: 'genre' });
+
     var bar = document.getElementById('filter-bar');
     var el  = document.getElementById('filter-chips');
     bar.style.display = chips.length > 0 ? 'flex' : 'none';
     el.innerHTML = chips.map(function(c) {
-      return '<span class="filter-chip">' + c.label
-           + ' <button onclick="clearFilter(\'' + c.clear + '\')" title="Remove">×</button></span>';
+      return '<span class="filter-chip">' + c.label + ' <button onclick="clearFilter(\'' + c.clear + '\')" title="Remove">×</button></span>';
     }).join('');
   }
 
   function updateFilterIcons() {
-    var fi = document.getElementById('fi-date');
-    var ft = document.getElementById('fi-type');
-    if (fi) fi.classList.toggle('active', !!(filters.dateFrom || filters.dateTo));
-    if (ft) ft.classList.toggle('active', filters.types.length > 0);
+    var fi = { date: !!(filters.dateFrom || filters.dateTo), type: filters.types.length > 0, genre: filters.genres.length > 0 };
+    Object.keys(fi).forEach(function(k) {
+      var el = document.getElementById('fi-' + k);
+      if (el) el.classList.toggle('active', fi[k]);
+    });
   }
 
-  // ── Album drawer ──────────────────────────────────────────────
+  // ── Row selection ─────────────────────────────────────────────
+  function toggleRowSelect(cb) {
+    var id = cb.dataset.id;
+    if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+    updateSelectionBar();
+    updateSelectAllCheckbox();
+  }
+
+  function toggleSelectAll(masterCb) {
+    allRows.forEach(function(row) {
+      if (row.style.display === 'none') return;  // skip hidden rows
+      var cb = row.querySelector('.row-select');
+      if (!cb) return;
+      cb.checked = masterCb.checked;
+      if (masterCb.checked) selectedIds.add(cb.dataset.id);
+      else selectedIds.delete(cb.dataset.id);
+    });
+    updateSelectionBar();
+  }
+
+  function updateSelectAllCheckbox() {
+    var master = document.getElementById('select-all');
+    if (!master) return;
+    var visible = allRows.filter(function(r) { return r.style.display !== 'none'; });
+    var checked = visible.filter(function(r) {
+      var cb = r.querySelector('.row-select');
+      return cb && selectedIds.has(cb.dataset.id);
+    });
+    if (checked.length === 0) {
+      master.checked = false; master.indeterminate = false;
+    } else if (checked.length === visible.length) {
+      master.checked = true;  master.indeterminate = false;
+    } else {
+      master.checked = false; master.indeterminate = true;
+    }
+  }
+
+  function clearSelection() {
+    selectedIds.clear();
+    document.querySelectorAll('.row-select:checked').forEach(function(cb) { cb.checked = false; });
+    var master = document.getElementById('select-all');
+    if (master) { master.checked = false; master.indeterminate = false; }
+    updateSelectionBar();
+  }
+
+  function updateSelectionBar() {
+    var bar = document.getElementById('selection-bar');
+    var cnt = document.getElementById('selection-count');
+    if (selectedIds.size > 0) {
+      bar.style.display = 'flex';
+      cnt.textContent   = selectedIds.size + ' release' + (selectedIds.size === 1 ? '' : 's') + ' selected';
+    } else {
+      bar.style.display = 'none';
+    }
+    updateSelectAllCheckbox();
+  }
+
+  // ── Add to list ───────────────────────────────────────────────
+  function addSelectionToList() {
+    var sel      = document.getElementById('add-to-list-select');
+    var listId   = sel.value;
+    var listName = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    if (!listId || selectedIds.size === 0) return;
+
+    fetch('/lists/' + listId + '/add', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ release_ids: Array.from(selectedIds) })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var msg = document.getElementById('selection-msg');
+      msg.textContent  = data.added + ' added to "' + listName + '"';
+      msg.style.display = 'inline';
+      setTimeout(function() { msg.style.display = 'none'; }, 3000);
+      sel.value = '';
+    })
+    .catch(function(err) { console.error('[lists] add error:', err); });
+  }
+
+  // ── Drawer ────────────────────────────────────────────────────
   var currentRequest = null;
 
   function showArtPlaceholder() {
@@ -351,7 +455,7 @@
           var img = document.getElementById('drawer-art');
           img.onload  = function() { img.style.display = 'block'; };
           img.onerror = showArtPlaceholder;
-          img.src = data.art_url;
+          img.src     = data.art_url;
         } else { showArtPlaceholder(); }
         if (data.type || data.genre || data.release_date) {
           document.getElementById('drawer-type').textContent  = data.type         || '';
