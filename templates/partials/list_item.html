@@ -4,6 +4,7 @@
 
 <div class="ri {{ 'ri-done' if is_done else '' }}"
      id="item-{{ r.id }}"
+     data-art-loaded="0"
      data-id="{{ r.id }}"
      data-listen="{{ r.listen_status or '' }}"
      data-rating="{{ rating_val }}"
@@ -24,6 +25,11 @@
       <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.5" stroke="currentColor" stroke-width="1.5"/></svg>
       {% endif %}
     </button>
+
+    {# Thumbnail — shown in full view only, populated by JS #}
+    <div class="ri-thumb" id="thumb-{{ r.id }}">
+      <div class="ri-thumb-loading"></div>
+    </div>
 
     <div class="ri-info">
       <div class="ri-row1">
@@ -56,6 +62,8 @@
         <span class="ri-review-summary"></span>
         {% endif %}
       </div>
+      {# Description — shown in full view only, populated by JS #}
+      <div class="ri-desc" id="desc-{{ r.id }}"></div>
     </div>
 
     <button class="ri-star {{ 'ri-star-on' if r.starred else '' }}"

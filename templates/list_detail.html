@@ -21,6 +21,15 @@
       <span class="count" id="pending-count">{{ pending|length }} pending</span>
     </div>
   </div>
+  <div class="page-actions">
+    <button class="view-toggle-btn" id="view-toggle-btn" onclick="toggleView()"
+            title="Toggle compact / full view">
+      <svg id="view-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <!-- Compact icon (three lines) — swapped to grid when full view active -->
+        <path d="M2 4h12v1.5H2V4zm0 3.25h12v1.5H2v-1.5zm0 3.25h12v1.5H2v-1.5z"/>
+      </svg>
+    </button>
+  </div>
 </div>
 
 {# ── Pending releases ── #}
@@ -287,5 +296,84 @@
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') { closeDrawer(); if (openReviewId) closeReview(openReviewId); }
   });
+
+  // ── Compact / Full view toggle ────────────────────────────────
+  var isFullView  = localStorage.getItem('listView_' + LIST_ID) === 'full';
+  var fullLoading = false;
+
+  // Icons
+  var ICON_COMPACT = '<path d="M2 4h12v1.5H2V4zm0 3.25h12v1.5H2v-1.5zm0 3.25h12v1.5H2v-1.5z"/>';
+  var ICON_FULL    = '<rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/>';
+
+  function toggleView() {
+    isFullView = !isFullView;
+    localStorage.setItem('listView_' + LIST_ID, isFullView ? 'full' : 'compact');
+    _applyViewState();
+    if (isFullView) _loadAllThumbs();
+  }
+
+  function _applyViewState() {
+    var lists = document.querySelectorAll('.release-list');
+    lists.forEach(function(l) { l.classList.toggle('view-full', isFullView); });
+    var btn  = document.getElementById('view-toggle-btn');
+    var icon = document.getElementById('view-icon');
+    if (btn)  btn.classList.toggle('active', isFullView);
+    if (icon) icon.innerHTML = isFullView ? ICON_FULL : ICON_COMPACT;
+  }
+
+  // Load art + bio for every item that hasn't been loaded yet.
+  // Processes 3 at a time to avoid flooding the server.
+  function _loadAllThumbs() {
+    if (fullLoading) return;
+    fullLoading = true;
+    var items = Array.from(document.querySelectorAll('.ri[data-art-loaded="0"]'));
+    if (!items.length) { fullLoading = false; return; }
+
+    var idx = 0;
+    var CONCURRENCY = 3;
+
+    function next() {
+      if (idx >= items.length) { fullLoading = false; return; }
+      var item = items[idx++];
+      _loadItemMeta(item).then(next);
+    }
+    for (var c = 0; c < Math.min(CONCURRENCY, items.length); c++) next();
+  }
+
+  function _loadItemMeta(item) {
+    var id = item.dataset.id;
+    return fetch('/release/' + id + '/meta')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        item.dataset.artLoaded = '1';
+
+        // Thumbnail
+        var thumbEl = document.getElementById('thumb-' + id);
+        if (thumbEl) {
+          if (data.art_url) {
+            thumbEl.innerHTML = '<img src="' + data.art_url + '" alt="" onerror="this.parentElement.innerHTML=\'<div class=ri-thumb-placeholder>No Art</div>\'">';
+          } else {
+            thumbEl.innerHTML = '<div class="ri-thumb-placeholder">No Art</div>';
+          }
+        }
+
+        // Description
+        var descEl = document.getElementById('desc-' + id);
+        if (descEl && data.bio) {
+          descEl.textContent = data.bio;
+        }
+      })
+      .catch(function() {
+        item.dataset.artLoaded = '1'; // don't retry on error
+        var thumbEl = document.getElementById('thumb-' + id);
+        if (thumbEl) thumbEl.innerHTML = '<div class="ri-thumb-placeholder">—</div>';
+      });
+  }
+
+  // Apply saved view state on page load
+  if (isFullView) {
+    _applyViewState();
+    _loadAllThumbs();
+  }
 </script>
 {% endblock %}

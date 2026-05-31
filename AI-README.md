@@ -19,29 +19,56 @@ A personal, local desktop app for tracking weekly metal music releases.
 
 ---
 
-## Current State (as of 2026-05-31)
+## V1 — Complete (as of 2026-05-31)
 
-### What is built and working
+V1 is the first fully working version of the app. All core workflows are functional.
+
+### V1 component inventory
 
 | Component | File(s) | Status |
 |---|---|---|
-| Database schema (releases + lists) | `db.py`, `metal_releases.db` | Done |
-| Bulk importer (from .txt) | `import_releases.py` | Done |
-| Metal Archives scraper | `fetch_releases.py` | Done |
-| Flask web app + routes | `app.py` | Done |
-| VS Code-style tab navigation | `base.html`, `style.css` | Done |
-| Home page (root, placeholder) | `templates/home.html` | Done |
-| Releases page — table, filters, drawer | `templates/index.html` | Done |
-| Lists page — create/delete named lists | `templates/lists.html` | Done |
-| Get Releases page — date picker | `templates/get_releases.html` | Done |
-| Album art + artist bio on demand | `metadata.py` | Done |
-| Slide-out release drawer | `templates/index.html` | Done |
-| Column filters — inline panel, date range + type checkboxes | `templates/index.html` | Done |
-| In-app debug log panel (backtick `` ` `` key) | `base.html`, `app.py` | Done |
-| PyWebView native window launcher + auto-updater | `launcher.py` | Done |
-| Dev launcher (C:\, no VeraCrypt) | `dev.bat` | Done |
-| Production launcher (A:\, Desktop shortcut) | `ThePit.bat`, `create_shortcut.ps1` | Done |
-| PyInstaller build pipeline | `ThePit.spec`, `build.bat` | Done |
+| Database schema (releases + lists + list_releases) | `db.py`, `metal_releases.db` | ✅ |
+| Bulk importer (from .txt) | `import_releases.py` | ✅ |
+| Metal Archives scraper (Playwright, Cloudflare-safe) | `fetch_releases.py` | ✅ |
+| Flask web app + routes | `app.py` | ✅ |
+| VS Code-style tab navigation (Home, Releases, Lists) | `base.html`, `style.css` | ✅ |
+| Home page (root, placeholder) | `templates/home.html` | ✅ |
+| Releases — table, column filters (date/type/genre), checkboxes | `templates/index.html` | ✅ |
+| Genre top-level classification (17 buckets, keyword mapping) | `app.py` | ✅ |
+| Add selected releases to a named list | `templates/index.html` | ✅ |
+| Lists page — create, delete, clickable rows | `templates/lists.html` | ✅ |
+| List detail — pending/completed sections, circle/star | `templates/list_detail.html` | ✅ |
+| Review sub-panel — play length, rating, notes (per list entry) | `partials/list_item.html` | ✅ |
+| Get Releases — date picker + scraper trigger | `templates/get_releases.html` | ✅ |
+| Album art + bio on demand (MusicBrainz/CAA + Last.fm) | `metadata.py` | ✅ |
+| Slide-out release drawer | `templates/index.html` | ✅ |
+| In-app debug log panel (backtick `` ` `` key) | `base.html`, `app.py` | ✅ |
+| PyWebView native window + auto-git-pull on open | `launcher.py` | ✅ |
+| Dev launcher (C:\, no VeraCrypt) | `dev.bat` | ✅ |
+| Production launcher (A:\, Desktop shortcut, auto-update) | `ThePit.bat`, `create_shortcut.ps1` | ✅ |
+| PyInstaller build pipeline | `ThePit.spec`, `build.bat` | ✅ |
+
+---
+
+## V2 — In Progress
+
+V2 focuses on polish, usability, and richer content in the list experience.
+
+### V2 changes
+
+| Feature | Status |
+|---|---|
+| Circle / star sized to ~50% of bar height (28px / 24px) | ✅ Done |
+| Slightly larger fonts in list items | ✅ Done |
+| Compact / Full view toggle on list detail page | ✅ Done |
+| Full view: album art thumbnail + bio inline per item | ✅ Done |
+| Home page content (TBD) | Planned |
+| listened/skipped/queued status on Releases table | Planned |
+| Scraper scheduling (cron or in-app button) | Planned |
+
+---
+
+## Current State
 
 ### How to run — development (C:\)
 
