@@ -471,8 +471,8 @@ main {
 /* ── Thumbnail (full view only) ── */
 .ri-thumb {
   display: none;
-  width: 72px;
-  height: 72px;
+  width: 144px;
+  height: 144px;
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
@@ -512,14 +512,17 @@ main {
   margin-top: 5px;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
 }
 
 /* Full view active — toggle class on the .release-list container */
-.view-full .ri-thumb { display: block; }
-.view-full .ri-desc  { display: -webkit-box; }
-.view-full .ri-main  { min-height: 88px; align-items: center; }
+.view-full .ri-thumb  { display: block; }
+.view-full .ri-desc   { display: -webkit-box; }
+.view-full .ri-main   { min-height: 160px; align-items: center; }
+.view-full .ri-album  { font-size: 17px; }
+.view-full .ri-artist { font-size: 14px; }
+.view-full .ri-row2   { font-size: 14px; margin-top: 5px; }
 
 /* View toggle button */
 .view-toggle-btn {
