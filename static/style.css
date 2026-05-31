@@ -223,8 +223,6 @@ main {
 .filter-chip button:hover { opacity: 1; }
 
 /* ── Filter icon in table headers ── */
-.col-th-date,
-.col-th-type  { position: relative; white-space: nowrap; }
 
 .filter-icon {
   background: none;
@@ -244,16 +242,16 @@ main {
 .filter-icon.active { color: var(--accent); }
 
 /* ── Filter popover ── */
+/* Uses position:fixed so overflow:auto on the table wrapper never clips it. */
+/* Top/left are set by JS (togglePopover) when the filter icon is clicked.   */
 .filter-popover {
   display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 200;
+  position: fixed;
+  z-index: 1000;
   background: #1c1c1c;
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
   min-width: 220px;
 }
 .filter-popover.visible { display: block; }

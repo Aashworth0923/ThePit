@@ -25,52 +25,19 @@
   <table id="releases-table">
     <thead>
       <tr>
-        <th class="col-th-date">
+        <th>
           Date
-          <button class="filter-icon" id="fi-date" onclick="togglePopover('date')" title="Filter by date">
+          <button class="filter-icon" id="fi-date" onclick="togglePopover('date', this)" title="Filter by date">
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
           </button>
-          <!-- Date range popover -->
-          <div class="filter-popover" id="pop-date">
-            <div class="filter-popover-inner">
-              <div class="fp-row">
-                <label>From</label>
-                <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31">
-              </div>
-              <div class="fp-row">
-                <label>To</label>
-                <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31">
-              </div>
-              <div class="fp-actions">
-                <button class="btn btn-primary btn-sm" onclick="applyDateFilter()">Apply</button>
-                <button class="btn btn-ghost btn-sm" onclick="clearFilter('date')">Clear</button>
-              </div>
-            </div>
-          </div>
         </th>
         <th>Artist</th>
         <th>Album</th>
-        <th class="col-th-type">
+        <th>
           Type
-          <button class="filter-icon" id="fi-type" onclick="togglePopover('type')" title="Filter by type">
+          <button class="filter-icon" id="fi-type" onclick="togglePopover('type', this)" title="Filter by type">
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
           </button>
-          <!-- Type popover -->
-          <div class="filter-popover" id="pop-type">
-            <div class="filter-popover-inner">
-              <div class="fp-checkboxes" id="fp-type-checks">
-                {% for t in type_values %}
-                <label class="fp-check-row">
-                  <input type="checkbox" class="type-check" value="{{ t | e }}"> {{ t }}
-                </label>
-                {% endfor %}
-              </div>
-              <div class="fp-actions">
-                <button class="btn btn-primary btn-sm" onclick="applyTypeFilter()">Apply</button>
-                <button class="btn btn-ghost btn-sm" onclick="clearFilter('type')">Clear</button>
-              </div>
-            </div>
-          </div>
         </th>
         <th>Genre</th>
         <th>★</th>
@@ -111,6 +78,41 @@
   <a href="{{ url_for('get_releases') }}" class="btn btn-primary">Get Releases</a>
 </div>
 {% endif %}
+
+<!-- Filter popovers — outside the table so overflow:auto doesn't clip them.
+     Positioned via JS (position:fixed) when a filter icon is clicked. -->
+<div class="filter-popover" id="pop-date">
+  <div class="filter-popover-inner">
+    <div class="fp-row">
+      <label>From</label>
+      <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31">
+    </div>
+    <div class="fp-row">
+      <label>To</label>
+      <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31">
+    </div>
+    <div class="fp-actions">
+      <button class="btn btn-primary btn-sm" onclick="applyDateFilter()">Apply</button>
+      <button class="btn btn-ghost btn-sm"  onclick="clearFilter('date')">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="filter-popover" id="pop-type">
+  <div class="filter-popover-inner">
+    <div class="fp-checkboxes">
+      {% for t in type_values %}
+      <label class="fp-check-row">
+        <input type="checkbox" class="type-check" value="{{ t | e }}"> {{ t }}
+      </label>
+      {% endfor %}
+    </div>
+    <div class="fp-actions">
+      <button class="btn btn-primary btn-sm" onclick="applyTypeFilter()">Apply</button>
+      <button class="btn btn-ghost btn-sm"  onclick="clearFilter('type')">Clear</button>
+    </div>
+  </div>
+</div>
 
 <!-- Drawer overlay -->
 <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
@@ -168,16 +170,22 @@
   }
 
   // ── Popover toggle ────────────────────────────────────────────
+  // Popovers use position:fixed positioned by JS so overflow:auto
+  // on the table wrapper never clips them.
   var openPopover = null;
 
-  function togglePopover(name) {
+  function togglePopover(name, btn) {
     var pop = document.getElementById('pop-' + name);
     if (!pop) return;
     var isOpen = pop.classList.contains('visible');
     closeAllPopovers();
     if (!isOpen) {
+      var rect = btn.getBoundingClientRect();
+      pop.style.top  = (rect.bottom + 6) + 'px';
+      pop.style.left = rect.left + 'px';
       pop.classList.add('visible');
       openPopover = name;
+      console.log('[FILTER] popover opened:', name, 'at', Math.round(rect.left), Math.round(rect.bottom));
     }
   }
 
@@ -188,8 +196,9 @@
     openPopover = null;
   }
 
+  // Close when clicking anywhere outside a filter icon or popover
   document.addEventListener('click', function(e) {
-    if (!e.target.closest('.col-th-date, .col-th-type')) closeAllPopovers();
+    if (!e.target.closest('.filter-icon, .filter-popover')) closeAllPopovers();
   });
 
   // ── Date filter ───────────────────────────────────────────────
