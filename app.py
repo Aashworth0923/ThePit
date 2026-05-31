@@ -1,6 +1,14 @@
 import sys
 import os
 import builtins
+
+# Force stdout/stderr to UTF-8 so Unicode characters in log lines
+# never cause UnicodeEncodeError on Windows (charmap encoding default).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except AttributeError:
+        pass  # pythonw.exe has no real stdout — safe to ignore
 from collections import deque
 from flask import Flask, render_template, redirect, url_for, request, flash, send_from_directory, jsonify
 import db
@@ -136,7 +144,8 @@ def art_proxy():
             ),
             "Referer": referer,
         })
-        print(f"[art-proxy] {host} → {resp.status_code}", flush=True)
+        # Use ASCII-safe arrow to avoid UnicodeEncodeError on Windows console
+        print(f"[art-proxy] {host} -> {resp.status_code}", flush=True)
         if resp.status_code == 200:
             from flask import Response
             return Response(

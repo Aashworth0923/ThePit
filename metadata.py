@@ -212,18 +212,28 @@ def _get_bandcamp_art(artist, album):
             return None
 
         soup = BeautifulSoup(resp.text, "html.parser")
+
+        # 1. Try JSON-LD structured data
+        import json as _json
         for tag in soup.find_all("script", type="application/ld+json"):
             try:
-                import json as _json
                 data = _json.loads(tag.string or "")
                 if isinstance(data, list):
                     data = data[0]
                 img = data.get("image") or data.get("thumbnailUrl")
                 if img and isinstance(img, str) and img.startswith("http"):
-                    print(f"[bandcamp] found art: {img[:80]}", flush=True)
+                    print(f"[bandcamp] found art (ld+json): {img[:80]}", flush=True)
                     return img
             except Exception:
                 continue
+
+        # 2. Try Open Graph image tag (more consistent across Bandcamp pages)
+        og = soup.find("meta", property="og:image")
+        if og and og.get("content", "").startswith("http"):
+            img = og["content"]
+            print(f"[bandcamp] found art (og:image): {img[:80]}", flush=True)
+            return img
+
     except Exception as e:
         print(f"[bandcamp] error: {e}", flush=True)
 
