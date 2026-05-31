@@ -33,18 +33,32 @@ A personal, local desktop app for tracking weekly metal music releases.
 | Get Releases page — date picker | `templates/get_releases.html` | Done |
 | Dark theme UI | `static/style.css` | Done |
 
-### How to run (canonical — from encrypted drive)
+### How to run — development (C:\)
+
+1. Open VS Code from `C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit`
+2. Double-click **`dev.bat`** inside that folder (or run it from the VS Code terminal)
+3. Browser opens at `http://127.0.0.1:5000` — runs against the local dev database
+4. Close the window to stop the server
+
+No VeraCrypt mount needed. Uses system Python and the `.env` in `C:\ThePit`.
+
+### How to run — production (A:\)
 
 1. Open VeraCrypt and mount your encrypted volume as **`A:\`** (must always be `A:\`)
-2. Double-click **`ThePit.bat`** on the Desktop (lives at `C:\Users\ashwo\Desktop\ThePit.bat`)
+2. Double-click **`ThePit.bat`** on the Desktop (`C:\Users\ashwo\Desktop\ThePit.bat`)
 3. Browser opens automatically to `http://127.0.0.1:5000`
 4. Close the black terminal window to stop the server
 
-The `.bat` file activates the `A:\ThePit\venv` Python environment, sets `PLAYWRIGHT_BROWSERS_PATH=A:\ThePit\browsers`, and starts Flask from `A:\ThePit`.
+Uses `A:\ThePit\venv`, `A:\ThePit\browsers`, and `A:\ThePit\metal_releases.db`.
 
 ### One-time data import (existing .txt files)
 
 ```bash
+# Dev
+cd "C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit"
+python import_releases.py --txt may_releases_filtered.txt
+
+# Production (A:\)
 cd A:\ThePit
 A:\ThePit\venv\Scripts\python import_releases.py --txt may_releases_filtered.txt
 ```
@@ -66,29 +80,121 @@ The project lives entirely on an **encrypted VeraCrypt volume mounted as `A:\`**
 
 **Drive letter must always be `A:\`.** The `.bat` launcher and `PLAYWRIGHT_BROWSERS_PATH` are hardcoded to `A:\`. If you ever need a different letter, edit all `A:\` references in `ThePit.bat`.
 
-**Continuing development in Claude Code:** Open Claude Code sessions from `A:\ThePit` (not the old `C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit` copy). The C:\ copy can be deleted once confirmed working.
+**Claude Code / VS Code sessions always open from `C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit`.** That is the dev workspace. `A:\` only needs to be mounted when running the production app or doing a production update (`git pull`).
+
+---
+
+## Development Workflow
+
+### The three-environment model
+
+```
+C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit\   ← DEV (write code here)
+        │
+        │  git push (code only, never secrets or data)
+        ▼
+github.com/Aashworth0923/ThePit                    ← BRIDGE (version history + backup)
+        │
+        │  git pull (updates code files only)
+        ▼
+A:\ThePit\                                         ← PROD (app runs here, data lives here)
+```
+
+| | C:\ Dev | GitHub | A:\ Prod |
+|---|---|---|---|
+| Python source files | ✓ | ✓ | ✓ (via pull) |
+| `.env` (API keys) | ✓ | **never** | ✓ (permanent) |
+| `metal_releases.db` | dev copy | **never** | ✓ (permanent) |
+| `venv\`, `browsers\` | system Python | **never** | ✓ (permanent) |
+
+---
+
+### A full development session
+
+**1. Open workspace**
+Open VS Code → `C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit`
+This is the only folder you ever open Claude Code or VS Code from.
+
+**2. Start the dev app**
+Double-click `dev.bat` in the folder, or from the VS Code terminal:
+```
+dev.bat
+```
+Browser opens at `http://127.0.0.1:5000`. Runs against the local dev database in `C:\ThePit\metal_releases.db`. `A:\` does not need to be mounted.
+
+**3. Make and test changes**
+Edit files in VS Code. To pick up changes, close the bat window and re-run it.
+
+For live reload while editing, temporarily set `debug=True` in `app.py`:
+```python
+app.run(debug=True, port=5000)   # auto-reloads on file save
+```
+Switch back to `debug=False` before committing.
+
+**4. Commit and push to GitHub**
+From the VS Code terminal (or any PowerShell/Git Bash):
+```bash
+git add .
+git commit -m "Short description of what changed"
+git push
+```
+`.env`, `metal_releases.db`, `venv\`, and `browsers\` are all gitignored — they will never be included.
+
+**5. Promote to production**
+When ready to use the new version in the real app:
+```bash
+# 1. Mount VeraCrypt as A:\
+# 2. Open any terminal:
+cd A:\ThePit
+git pull
+# 3. Run ThePit.bat from Desktop as normal
+```
+`git pull` only touches code files. The `.env`, database, venv, and browsers on `A:\` are untouched.
+
+---
+
+### Quick reference
+
+| Task | Command / Action |
+|---|---|
+| Start dev session | Double-click `dev.bat` in `C:\ThePit` |
+| Commit a change | `git add .` → `git commit -m "..."` → `git push` |
+| Update production | Mount `A:\` → `cd A:\ThePit` → `git pull` |
+| Edit API keys (dev) | Edit `C:\ThePit\.env` |
+| Edit API keys (prod) | Edit `A:\ThePit\.env` |
+| Open Claude Code | Always from `C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit` |
 
 ---
 
 ## File Structure
 
 ```
-A:\ThePit\
-├── app.py                  # Flask routes — all URL endpoints live here
-├── db.py                   # All database reads/writes — one function per operation
-├── fetch_releases.py       # Metal Archives scraper (Playwright headless browser)
-├── import_releases.py      # One-shot importer for .txt files
-├── metal_releases.db       # SQLite database (single file, the whole DB)
-├── ThePit.jpg              # App icon / favicon
-├── AI-README.md            # This file
-├── venv\                   # Python virtual environment (self-contained on drive)
-├── browsers\               # Playwright Chromium browser (self-contained on drive)
+ThePit\                         (C:\ = dev workspace  |  A:\ = production)
+├── app.py                      # Flask routes — all URL endpoints live here
+├── db.py                       # All database reads/writes — one function per operation
+├── fetch_releases.py           # Metal Archives scraper (Playwright headless browser)
+├── import_releases.py          # One-shot importer for .txt files
+├── metadata.py                 # Album art (MusicBrainz/CAA) + bio (Last.fm), cached
+├── dev.bat                     # Dev launcher — runs from C:\, no VeraCrypt needed
+├── ThePit.jpg                  # App icon / favicon
+├── AI-README.md                # This file
+├── .env                        # API keys — gitignored, never committed
+├── .env.example                # Key template — safe to commit, no real values
+├── .gitignore                  # Blocks .env, db, venv, browsers from git
+│
+├── metal_releases.db           # SQLite database (gitignored — stays local)
+├── venv\                       # Python venv (gitignored — A:\ only)
+├── browsers\                   # Playwright Chromium (gitignored — A:\ only)
+│
 ├── templates\
-│   ├── base.html           # Shared layout — every page extends this
-│   ├── index.html          # Home: releases table with live text filter
-│   └── get_releases.html   # Date picker form → triggers scraper
+│   ├── base.html               # Shared layout — every new page extends this
+│   ├── index.html              # Home: releases table, live filter, slide-out drawer
+│   └── get_releases.html       # Date picker form → triggers scraper
 └── static\
-    └── style.css           # Dark theme CSS (no external dependencies)
+    └── style.css               # Dark theme CSS (no external dependencies)
+
+C:\Users\ashwo\Desktop\
+└── ThePit.bat                  # Production launcher — requires A:\ mounted
 ```
 
 ---
