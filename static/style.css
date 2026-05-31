@@ -223,7 +223,6 @@ main {
 .filter-chip button:hover { opacity: 1; }
 
 /* ── Filter icon in table headers ── */
-
 .filter-icon {
   background: none;
   border: none;
@@ -237,39 +236,62 @@ main {
   display: inline-flex;
   align-items: center;
 }
-.filter-icon svg { width: 11px; height: 11px; }
-.filter-icon:hover  { color: var(--text); background: #2a2a2a; }
-.filter-icon.active { color: var(--accent); }
+.filter-icon svg         { width: 11px; height: 11px; }
+.filter-icon:hover       { color: var(--text); background: #2a2a2a; }
+.filter-icon.active      { color: var(--accent); }
+.filter-icon.panel-open  { color: var(--accent); background: #2a2a2a; }
 
-/* ── Filter popover ── */
-/* Uses position:fixed so overflow:auto on the table wrapper never clips it. */
-/* Top/left are set by JS (togglePopover) when the filter icon is clicked.   */
-.filter-popover {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  background: #1c1c1c;
+/* ── Inline filter panel (sits above the table, no positioning needed) ── */
+.filter-panel {
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-  min-width: 220px;
+  margin-bottom: 12px;
+  overflow: hidden;
 }
-.filter-popover.visible { display: block; }
-.filter-popover-inner   { padding: 14px; }
-
-.fp-row {
+.fp-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
 }
-.fp-row label {
+#fp-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.fp-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 0.15s;
+}
+.fp-close:hover { color: var(--text); }
+
+/* Section (date / type) */
+.fps {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 14px 16px;
+  flex-wrap: wrap;
+}
+.fps-fields { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end; }
+.fps-field  { display: flex; flex-direction: column; gap: 5px; }
+.fps-field label {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--muted);
 }
-.fp-row input[type="date"] {
+.fps-field input[type="date"] {
   background: var(--surface2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -278,36 +300,30 @@ main {
   font-size: 13px;
   outline: none;
   color-scheme: dark;
-  width: 100%;
+  min-width: 150px;
 }
-.fp-row input[type="date"]:focus { border-color: #555; }
-
-.fp-checkboxes {
-  max-height: 180px;
-  overflow-y: auto;
-  margin-bottom: 10px;
+.fps-field input[type="date"]:focus { border-color: #555; }
+.fps-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  max-width: 600px;
 }
-.fp-check-row {
+.fps-check-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 4px;
+  gap: 7px;
   font-size: 13px;
   cursor: pointer;
-  border-radius: 3px;
   color: var(--text);
+  padding: 3px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
 }
-.fp-check-row:hover { background: var(--surface2); }
-.fp-check-row input { cursor: pointer; accent-color: var(--accent); }
-
-.fp-actions {
-  display: flex;
-  gap: 8px;
-  padding-top: 4px;
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-}
-.btn-sm { padding: 4px 12px; font-size: 12px; }
+.fps-check-row:hover   { background: var(--surface2); }
+.fps-check-row input   { cursor: pointer; accent-color: var(--accent); }
+.fps-actions           { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.btn-sm                { padding: 5px 14px; font-size: 12px; }
 
 /* ── Lists page ── */
 .new-list-form {

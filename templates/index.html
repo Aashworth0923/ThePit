@@ -13,21 +13,62 @@
   </div>
 </div>
 
-<!-- Active filter chips bar (hidden until a filter is applied) -->
+<!-- ── Active filter chips (shown when any filter is applied) ── -->
 <div class="filter-bar" id="filter-bar" style="display:none;">
   <span class="filter-bar-label">Filters</span>
   <div class="filter-chips" id="filter-chips"></div>
   <button class="btn btn-ghost btn-sm" onclick="clearAllFilters()">Clear all</button>
 </div>
 
+<!-- ── Inline filter panel (appears above table when a filter icon is clicked) ── -->
+<div id="filter-panel" class="filter-panel" style="display:none;">
+  <div class="fp-header">
+    <span id="fp-title"></span>
+    <button class="fp-close" onclick="closeFilterPanel()" title="Close">✕</button>
+  </div>
+
+  <!-- Date section -->
+  <div id="fps-date" class="fps" style="display:none;">
+    <div class="fps-fields">
+      <div class="fps-field">
+        <label>From</label>
+        <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31">
+      </div>
+      <div class="fps-field">
+        <label>To</label>
+        <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31">
+      </div>
+    </div>
+    <div class="fps-actions">
+      <button class="btn btn-primary btn-sm" onclick="applyDateFilter()">Save</button>
+      <button class="btn btn-ghost btn-sm"   onclick="clearFilter('date')">Clear</button>
+    </div>
+  </div>
+
+  <!-- Type section -->
+  <div id="fps-type" class="fps" style="display:none;">
+    <div class="fps-checks">
+      {% for t in type_values %}
+      <label class="fps-check-row">
+        <input type="checkbox" class="type-check" value="{{ t | e }}"> {{ t }}
+      </label>
+      {% endfor %}
+    </div>
+    <div class="fps-actions">
+      <button class="btn btn-primary btn-sm" onclick="applyTypeFilter()">Save</button>
+      <button class="btn btn-ghost btn-sm"   onclick="clearFilter('type')">Clear</button>
+    </div>
+  </div>
+</div>
+
 {% if releases %}
-<div class="table-wrap" style="position:relative;">
+<div class="table-wrap">
   <table id="releases-table">
     <thead>
       <tr>
         <th>
           Date
-          <button class="filter-icon" id="fi-date" onclick="togglePopover('date', this)" title="Filter by date">
+          <button class="filter-icon" id="fi-date" onclick="openFilter('date')" title="Filter by date">
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
           </button>
         </th>
@@ -35,7 +76,7 @@
         <th>Album</th>
         <th>
           Type
-          <button class="filter-icon" id="fi-type" onclick="togglePopover('type', this)" title="Filter by type">
+          <button class="filter-icon" id="fi-type" onclick="openFilter('type')" title="Filter by type">
             <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
           </button>
         </th>
@@ -79,41 +120,6 @@
 </div>
 {% endif %}
 
-<!-- Filter popovers — outside the table so overflow:auto doesn't clip them.
-     Positioned via JS (position:fixed) when a filter icon is clicked. -->
-<div class="filter-popover" id="pop-date">
-  <div class="filter-popover-inner">
-    <div class="fp-row">
-      <label>From</label>
-      <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31">
-    </div>
-    <div class="fp-row">
-      <label>To</label>
-      <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31">
-    </div>
-    <div class="fp-actions">
-      <button class="btn btn-primary btn-sm" onclick="applyDateFilter()">Apply</button>
-      <button class="btn btn-ghost btn-sm"  onclick="clearFilter('date')">Clear</button>
-    </div>
-  </div>
-</div>
-
-<div class="filter-popover" id="pop-type">
-  <div class="filter-popover-inner">
-    <div class="fp-checkboxes">
-      {% for t in type_values %}
-      <label class="fp-check-row">
-        <input type="checkbox" class="type-check" value="{{ t | e }}"> {{ t }}
-      </label>
-      {% endfor %}
-    </div>
-    <div class="fp-actions">
-      <button class="btn btn-primary btn-sm" onclick="applyTypeFilter()">Apply</button>
-      <button class="btn btn-ghost btn-sm"  onclick="clearFilter('type')">Clear</button>
-    </div>
-  </div>
-</div>
-
 <!-- Drawer overlay -->
 <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
 
@@ -147,17 +153,15 @@
 </aside>
 
 <script>
-  console.log('[ThePit] script block loaded');
+  // ── State ─────────────────────────────────────────────────────
+  var filters     = { dateFrom: null, dateTo: null, types: [], search: '' };
+  var allRows     = Array.from(document.querySelectorAll('#releases-table tbody tr'));
+  var activePanel = null;
 
-  // ── Filter state ──────────────────────────────────────────────
-  var filters = { dateFrom: null, dateTo: null, types: [], search: '' };
-  var allRows = Array.from(document.querySelectorAll('#releases-table tbody tr'));
-  console.log('[FILTER] page loaded —', allRows.length, 'rows found in table');
+  console.log('[FILTER] page loaded —', allRows.length, 'rows');
   if (allRows.length > 0) {
-    var sample = allRows[0];
-    console.log('[FILTER] sample row data-date="' + sample.dataset.date + '"'
-      + ' data-type="' + sample.dataset.type + '"'
-      + ' data-genre="' + sample.dataset.genre + '"');
+    var s = allRows[0];
+    console.log('[FILTER] sample: data-date="' + s.dataset.date + '" data-type="' + s.dataset.type + '"');
   }
 
   // ── Text search ───────────────────────────────────────────────
@@ -169,44 +173,43 @@
     });
   }
 
-  // ── Popover toggle ────────────────────────────────────────────
-  // Popovers use position:fixed positioned by JS so overflow:auto
-  // on the table wrapper never clips them.
-  var openPopover = null;
+  // ── Filter panel ──────────────────────────────────────────────
+  var PANEL_TITLES = { date: 'Date Filter', type: 'Type Filter' };
 
-  function togglePopover(name, btn) {
-    var pop = document.getElementById('pop-' + name);
-    if (!pop) return;
-    var isOpen = pop.classList.contains('visible');
-    closeAllPopovers();
-    if (!isOpen) {
-      var rect = btn.getBoundingClientRect();
-      pop.style.top  = (rect.bottom + 6) + 'px';
-      pop.style.left = rect.left + 'px';
-      pop.classList.add('visible');
-      openPopover = name;
-      console.log('[FILTER] popover opened:', name, 'at', Math.round(rect.left), Math.round(rect.bottom));
-    }
+  function openFilter(name) {
+    // Toggle: clicking the same icon while panel is open closes it
+    if (activePanel === name) { closeFilterPanel(); return; }
+
+    // Swap section content
+    document.querySelectorAll('.fps').forEach(function(el) { el.style.display = 'none'; });
+    var section = document.getElementById('fps-' + name);
+    if (!section) return;
+    section.style.display = 'flex';
+
+    document.getElementById('fp-title').textContent = PANEL_TITLES[name] || name;
+    document.getElementById('filter-panel').style.display = 'block';
+    activePanel = name;
+
+    // Highlight the active filter icon
+    document.querySelectorAll('.filter-icon').forEach(function(b) { b.classList.remove('panel-open'); });
+    var icon = document.getElementById('fi-' + name);
+    if (icon) icon.classList.add('panel-open');
+
+    console.log('[FILTER] panel opened:', name);
   }
 
-  function closeAllPopovers() {
-    document.querySelectorAll('.filter-popover.visible').forEach(function(p) {
-      p.classList.remove('visible');
-    });
-    openPopover = null;
+  function closeFilterPanel() {
+    document.getElementById('filter-panel').style.display = 'none';
+    document.querySelectorAll('.filter-icon').forEach(function(b) { b.classList.remove('panel-open'); });
+    activePanel = null;
   }
-
-  // Close when clicking anywhere outside a filter icon or popover
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.filter-icon, .filter-popover')) closeAllPopovers();
-  });
 
   // ── Date filter ───────────────────────────────────────────────
   function applyDateFilter() {
     filters.dateFrom = document.getElementById('fp-date-from').value || null;
     filters.dateTo   = document.getElementById('fp-date-to').value   || null;
-    console.log('[FILTER] date filter set — from:', filters.dateFrom, 'to:', filters.dateTo);
-    closeAllPopovers();
+    console.log('[FILTER] date — from:', filters.dateFrom, 'to:', filters.dateTo);
+    closeFilterPanel();
     applyAllFilters();
   }
 
@@ -214,12 +217,12 @@
   function applyTypeFilter() {
     filters.types = Array.from(document.querySelectorAll('.type-check:checked'))
                          .map(function(cb) { return cb.value; });
-    console.log('[FILTER] type filter set —', filters.types);
-    closeAllPopovers();
+    console.log('[FILTER] type —', filters.types);
+    closeFilterPanel();
     applyAllFilters();
   }
 
-  // ── Clear a single filter ─────────────────────────────────────
+  // ── Clear ─────────────────────────────────────────────────────
   function clearFilter(name) {
     if (name === 'date') {
       filters.dateFrom = null; filters.dateTo = null;
@@ -230,7 +233,7 @@
       filters.types = [];
       document.querySelectorAll('.type-check').forEach(function(cb) { cb.checked = false; });
     }
-    closeAllPopovers();
+    closeFilterPanel();
     applyAllFilters();
   }
 
@@ -239,32 +242,27 @@
     clearFilter('type');
     filters.search = '';
     if (searchInput) searchInput.value = '';
+    closeFilterPanel();
     applyAllFilters();
   }
 
   // ── Core filter engine ────────────────────────────────────────
   function applyAllFilters() {
-    var visible = 0;
-    var hiddenByDate = 0, hiddenByType = 0, hiddenBySearch = 0;
+    var visible = 0, hDate = 0, hType = 0, hSearch = 0;
 
     allRows.forEach(function(row) {
       var show = true;
-
-      if (filters.dateFrom && row.dataset.date < filters.dateFrom) { show = false; hiddenByDate++; }
-      if (filters.dateTo   && row.dataset.date > filters.dateTo)   { show = false; hiddenByDate++; }
-      if (filters.types.length > 0 && filters.types.indexOf(row.dataset.type) === -1) { show = false; hiddenByType++; }
-      if (filters.search && row.textContent.toLowerCase().indexOf(filters.search) === -1) { show = false; hiddenBySearch++; }
-
+      if (filters.dateFrom && row.dataset.date < filters.dateFrom) { show = false; hDate++; }
+      if (filters.dateTo   && row.dataset.date > filters.dateTo)   { show = false; hDate++; }
+      if (filters.types.length > 0 && filters.types.indexOf(row.dataset.type) === -1) { show = false; hType++; }
+      if (filters.search && row.textContent.toLowerCase().indexOf(filters.search) === -1) { show = false; hSearch++; }
       row.style.display = show ? '' : 'none';
       if (show) visible++;
     });
 
-    console.log('[FILTER] applyAllFilters result:'
-      + ' visible=' + visible
-      + ' hiddenByDate=' + hiddenByDate
-      + ' hiddenByType=' + hiddenByType
-      + ' hiddenBySearch=' + hiddenBySearch
-      + ' | state=' + JSON.stringify(filters));
+    console.log('[FILTER] result: visible=' + visible
+      + ' hDate=' + hDate + ' hType=' + hType + ' hSearch=' + hSearch
+      + ' state=' + JSON.stringify(filters));
 
     updateCountLabel(visible);
     updateFilterBar();
@@ -288,34 +286,32 @@
   function updateFilterBar() {
     var chips = [];
     if (filters.dateFrom || filters.dateTo) {
-      var label = 'Date: ' + (filters.dateFrom ? fmtDate(filters.dateFrom) : '…')
-                + ' – ' + (filters.dateTo   ? fmtDate(filters.dateTo)   : '…');
-      chips.push({ label: label, clear: 'date' });
+      chips.push({
+        label: 'Date: ' + (filters.dateFrom ? fmtDate(filters.dateFrom) : '…')
+             + ' – ' + (filters.dateTo ? fmtDate(filters.dateTo) : '…'),
+        clear: 'date'
+      });
     }
     if (filters.types.length > 0) {
       chips.push({ label: 'Type: ' + filters.types.join(', '), clear: 'type' });
     }
-
-    var bar       = document.getElementById('filter-bar');
-    var chipsEl   = document.getElementById('filter-chips');
+    var bar = document.getElementById('filter-bar');
+    var el  = document.getElementById('filter-chips');
     bar.style.display = chips.length > 0 ? 'flex' : 'none';
-    chipsEl.innerHTML = chips.map(function(c) {
-      return '<span class="filter-chip">'
-           + c.label
-           + ' <button onclick="clearFilter(\'' + c.clear + '\')" title="Remove filter">×</button>'
-           + '</span>';
+    el.innerHTML = chips.map(function(c) {
+      return '<span class="filter-chip">' + c.label
+           + ' <button onclick="clearFilter(\'' + c.clear + '\')" title="Remove">×</button></span>';
     }).join('');
   }
 
   function updateFilterIcons() {
-    var dateActive = filters.dateFrom || filters.dateTo;
-    var typeActive = filters.types.length > 0;
-    document.getElementById('fi-date').classList.toggle('active', !!dateActive);
-    document.getElementById('fi-type').classList.toggle('active', !!typeActive);
+    var fi = document.getElementById('fi-date');
+    var ft = document.getElementById('fi-type');
+    if (fi) fi.classList.toggle('active', !!(filters.dateFrom || filters.dateTo));
+    if (ft) ft.classList.toggle('active', filters.types.length > 0);
   }
 
-  // ── Drawer ────────────────────────────────────────────────────
-  console.log('[ThePit] setting up click listener');
+  // ── Album drawer ──────────────────────────────────────────────
   var currentRequest = null;
 
   function showArtPlaceholder() {
@@ -323,17 +319,9 @@
     document.getElementById('drawer-art-placeholder').style.display = 'flex';
   }
 
-  function drawerError(msg) {
-    document.getElementById('drawer-art-loading').style.display = 'none';
-    showArtPlaceholder();
-    var b = document.getElementById('drawer-bio-loading');
-    b.style.display = 'block'; b.textContent = 'Error: ' + msg;
-  }
-
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('.album-link');
     if (!btn) return;
-    console.log('[ThePit] album clicked id:', btn.dataset.id);
     openDrawer(btn.dataset.id, btn.dataset.artist, btn.dataset.album);
   });
 
@@ -352,9 +340,9 @@
     document.getElementById('drawer').classList.add('open');
     document.getElementById('drawer-overlay').classList.add('open');
 
-    var controller = new AbortController();
-    currentRequest = controller;
-    fetch('/release/' + id + '/meta', { signal: controller.signal })
+    var ctrl = new AbortController();
+    currentRequest = ctrl;
+    fetch('/release/' + id + '/meta', { signal: ctrl.signal })
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         currentRequest = null;
@@ -362,7 +350,7 @@
         if (data.art_url) {
           var img = document.getElementById('drawer-art');
           img.onload  = function() { img.style.display = 'block'; };
-          img.onerror = function() { showArtPlaceholder(); };
+          img.onerror = showArtPlaceholder;
           img.src = data.art_url;
         } else { showArtPlaceholder(); }
         if (data.type || data.genre || data.release_date) {
@@ -381,7 +369,9 @@
       })
       .catch(function(err) {
         if (err.name === 'AbortError') return;
-        drawerError(err.message || 'fetch failed');
+        document.getElementById('drawer-art-loading').style.display = 'none';
+        showArtPlaceholder();
+        document.getElementById('drawer-bio-loading').textContent = 'Error: ' + err.message;
       });
   }
 
@@ -391,7 +381,8 @@
     if (currentRequest) { currentRequest.abort(); currentRequest = null; }
   }
 
-  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeDrawer(); closeAllPopovers(); } });
-  console.log('[ThePit] setup complete');
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { closeDrawer(); closeFilterPanel(); }
+  });
 </script>
 {% endblock %}
