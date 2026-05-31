@@ -62,6 +62,11 @@ V2 focuses on polish, usability, and richer content in the list experience.
 | Slightly larger fonts in list items | ✅ Done |
 | Compact / Full view toggle on list detail page | ✅ Done |
 | Full view: album art thumbnail + bio inline per item | ✅ Done |
+| Last.fm album.getInfo as art fallback (Phase 1 art) | ✅ Done |
+| Metal Archives CDN image URL as art fallback (Phase 2) | ✅ Done |
+| Store `ma_album_id` from scraper for MA image lookup | ✅ Done |
+| Fix Get Releases 500 (stale url_for + subprocess Playwright) | ✅ Done |
+| Bandcamp JSON-LD art fallback (Phase 3) | ✅ Done |
 | Home page content (TBD) | Planned |
 | listened/skipped/queued status on Releases table | Planned |
 | Scraper scheduling (cron or in-app button) | Planned |
@@ -378,8 +383,7 @@ Clicking any album name in the table opens a slide-out drawer from the right. Ar
 
 **Ruled out:**
 - Spotify: Feb 2026 terms require Premium subscription for app owner + 250K MAU for extended quota. Not viable.
-- Bandcamp: No public API. Scraping is legal gray area.
-- iTunes Search: No auth needed, high-quality art, but very poor underground metal coverage.
+- iTunes Search: No auth needed, but very poor underground metal coverage and promotional-only licensing.
 
 ### How it works
 
@@ -388,15 +392,30 @@ User clicks album name in table
     → JS event delegation fires openDrawer(id, artist, album)
     → Drawer slides in from right, shows loading state
     → fetch('/release/<id>/meta')
-        → Flask looks up release in DB by id
-        → metadata.get_release_meta(artist, album):
-            → MusicBrainz search → Cover Art Archive for art URL
-            → Last.fm artist.getinfo for bio text
-            → Results cached in-process (dict) for the session
+        → Flask looks up release in DB by id (includes ma_album_id)
+        → metadata.get_release_meta(artist, album, ma_album_id):
+
+            Art fallback chain (first hit wins):
+              1. MusicBrainz search → Cover Art Archive (free, open)
+              2. Last.fm album.getInfo (have API key, good underground coverage)
+              3. Metal Archives CDN /images/{d1}/{d2}/{d3}/{d4}/{id}.jpg
+                 (needs ma_album_id stored from scraper; may be Cloudflare-blocked)
+              4. Bandcamp JSON-LD (best underground coverage, 1200px images)
+                 → slugify artist/album → try {artist}.bandcamp.com/album/{album}
+                 → parse <script type="application/ld+json"> for image URL
+
+            Bio: Last.fm artist.getinfo
+            Results cached in-process dict for the session
+
         → Returns JSON: {artist, album, type, genre, release_date, art_url, bio}
     → Drawer renders: art image, type/genre/date tags, bio text
     → Nothing written to SQLite
 ```
+
+**Scraper subprocess fix:** `run_fetch()` / Playwright cannot run in a Flask worker thread
+on Windows (asyncio ProactorEventLoop restriction). Flask now spawns `fetch_releases.py`
+as a subprocess via `_scrape_subprocess()` in `app.py`. The child process has its own
+main thread and event loop where Playwright works normally.
 
 **Key implementation notes:**
 - `data-id`, `data-artist`, `data-album` attributes on each button (not inline onclick) — avoids quoting issues with special characters in band names

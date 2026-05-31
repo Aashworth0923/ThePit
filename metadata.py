@@ -168,6 +168,68 @@ def _get_lastfm_album_art(artist, album):
     return None
 
 
+def _slugify(text):
+    """Convert artist/album name to a Bandcamp-style URL slug."""
+    import unicodedata
+    # Normalise unicode (é → e), lowercase, keep only alphanumeric + spaces/hyphens
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+    text = re.sub(r"[^\w\s-]", "", text.lower())
+    text = re.sub(r"[\s_]+", "-", text.strip())
+    return re.sub(r"-+", "-", text).strip("-")
+
+
+def _get_bandcamp_art(artist, album):
+    """
+    Try to fetch album art from Bandcamp by constructing the probable URL
+    and parsing the JSON-LD embedded in the page.
+
+    URL pattern: https://{artist-slug}.bandcamp.com/album/{album-slug}
+
+    Bandcamp embeds a <script type="application/ld+json"> block on every
+    album page containing the image URL at full quality (~1200×1200).
+    """
+    artist_slug = _slugify(artist)
+    album_slug  = _slugify(album)
+    if not artist_slug or not album_slug:
+        return None
+
+    url = f"https://{artist_slug}.bandcamp.com/album/{album_slug}"
+    print(f"[bandcamp] trying: {url}", flush=True)
+
+    try:
+        from bs4 import BeautifulSoup
+        resp = requests.get(url, timeout=8, headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+        })
+        print(f"[bandcamp] status: {resp.status_code}", flush=True)
+        if resp.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for tag in soup.find_all("script", type="application/ld+json"):
+            try:
+                import json as _json
+                data = _json.loads(tag.string or "")
+                if isinstance(data, list):
+                    data = data[0]
+                img = data.get("image") or data.get("thumbnailUrl")
+                if img and isinstance(img, str) and img.startswith("http"):
+                    print(f"[bandcamp] found art: {img[:80]}", flush=True)
+                    return img
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"[bandcamp] error: {e}", flush=True)
+
+    return None
+
+
 def _get_ma_art_url(ma_album_id):
     """
     Try to fetch album art directly from the Metal Archives CDN.
@@ -228,8 +290,10 @@ def get_release_meta(artist, album, ma_album_id=None):
     # 3. Metal Archives CDN (if ma_album_id stored from scraper)
     if not result["art_url"] and ma_album_id:
         result["art_url"] = _get_ma_art_url(ma_album_id)
-        if result["art_url"]:
-            print(f"[ma-art] used MA fallback for {artist!r} / {album!r}", flush=True)
+
+    # 4. Bandcamp JSON-LD (best underground coverage, ~1200px images)
+    if not result["art_url"]:
+        result["art_url"] = _get_bandcamp_art(artist, album)
 
     # Brief pause — MusicBrainz asks for max 1 req/sec
     time.sleep(0.6)
