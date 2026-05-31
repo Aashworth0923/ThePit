@@ -28,10 +28,14 @@ A personal, local desktop app for tracking weekly metal music releases.
 | Database schema | `db.py`, `metal_releases.db` | Done |
 | Bulk importer (from .txt) | `import_releases.py` | Done |
 | Metal Archives scraper | `fetch_releases.py` | Done |
-| Flask web app | `app.py` | Done |
-| Home page — releases table | `templates/index.html` | Done |
+| Flask web app + routes | `app.py` | Done |
+| Home page — releases table with live filter | `templates/index.html` | Done |
 | Get Releases page — date picker | `templates/get_releases.html` | Done |
 | Dark theme UI | `static/style.css` | Done |
+| Album art + artist bio on demand | `metadata.py` | Done |
+| Slide-out release drawer | `templates/index.html` | Done |
+| Dev launcher (C:\, no VeraCrypt needed) | `dev.bat` | Done |
+| Production launcher (A:\) | `ThePit.bat` | Done |
 
 ### How to run — development (C:\)
 
@@ -265,6 +269,7 @@ Epics are numbered in intended build order:
 |---|---|---|
 | 1 | **Data Ingestion** — import .txt files, scraper from Metal Archives | ✅ Done |
 | 2 | **Local App Shell** — Flask app, home table, get releases page | ✅ Done |
+| 2b | **Rich Metadata Drawer** — album art + bio slide-out panel, stream not store | ✅ Done |
 | 3 | **Release Browser / To-Do View** — filter by type/genre/date, mark listened/skipped/queued | Next |
 | 4 | **Priority Flagging** — star releases, auto-flag by label or genre | Planned |
 | 5 | **Scraper Scheduling** — weekly auto-fetch via cron or in-app refresh | Planned |
@@ -273,11 +278,11 @@ Epics are numbered in intended build order:
 
 ---
 
-## Rich Metadata: Album Art & Bios (Planned — Stream, Not Store)
+## Rich Metadata: Album Art & Bios (Built — Stream, Not Store)
 
-The plan is to display album art and artist/album descriptions when a user clicks a release — fetched on demand, **not stored in SQLite**. This keeps the DB lean and the data always fresh.
+Clicking any album name in the table opens a slide-out drawer from the right. Art and bio are fetched on demand and **never stored in SQLite** — data stays fresh, DB stays lean.
 
-### Recommended API stack (researched 2026-05-31)
+### API stack (researched and implemented 2026-05-31)
 
 | Source | Used For | Auth | Metal Coverage | Notes |
 |---|---|---|---|---|
@@ -290,22 +295,29 @@ The plan is to display album art and artist/album descriptions when a user click
 - Bandcamp: No public API. Scraping is legal gray area.
 - iTunes Search: No auth needed, high-quality art, but very poor underground metal coverage.
 
-### Architecture (stream not store)
+### How it works
 
 ```
-User clicks release
-    → Flask route: GET /release/<id>/meta
-    → Try MusicBrainz for album art URL
-    → Try Last.fm for artist bio
-    → Return JSON to frontend
-    → Frontend renders art + bio in a slide-out panel
+User clicks album name in table
+    → JS event delegation fires openDrawer(id, artist, album)
+    → Drawer slides in from right, shows loading state
+    → fetch('/release/<id>/meta')
+        → Flask looks up release in DB by id
+        → metadata.get_release_meta(artist, album):
+            → MusicBrainz search → Cover Art Archive for art URL
+            → Last.fm artist.getinfo for bio text
+            → Results cached in-process (dict) for the session
+        → Returns JSON: {artist, album, type, genre, release_date, art_url, bio}
+    → Drawer renders: art image, type/genre/date tags, bio text
     → Nothing written to SQLite
 ```
 
-A simple in-memory cache (`functools.lru_cache` or a Python dict) prevents re-fetching the same release during a session.
-
-**What gets stored in SQLite:** nothing new. Art URLs and bios are transient.
-**What gets displayed:** art image (via `<img src="...">` pointing at Cover Art Archive CDN), Last.fm bio text.
+**Key implementation notes:**
+- `data-id`, `data-artist`, `data-album` attributes on each button (not inline onclick) — avoids quoting issues with special characters in band names
+- `img.onload` / `img.onerror` wired in JS just before `img.src` is set — avoids firing on empty src at page load
+- `AbortController` cancels in-flight requests when a new album is clicked before the previous finishes
+- In-process `_cache` dict in `metadata.py` — same artist/album never re-fetched within a session
+- All steps emit `[ThePit]` console logs (browser) and `[mb]`/`[caa]`/`[lastfm]`/`[meta]` prints (server) for debugging
 
 ---
 

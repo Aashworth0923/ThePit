@@ -34,7 +34,10 @@
         <td class="col-date">{{ r.release_date }}</td>
         <td class="col-artist">{{ r.artist }}</td>
         <td class="col-album">
-          <button class="album-link" onclick="openDrawer({{ r.id }}, {{ r.artist|tojson }}, {{ r.album|tojson }})">
+          <button class="album-link"
+                  data-id="{{ r.id }}"
+                  data-artist="{{ r.artist | e }}"
+                  data-album="{{ r.album | e }}">
             {{ r.album }}
           </button>
         </td>
@@ -69,7 +72,7 @@
   </div>
 
   <div class="drawer-art-wrap">
-    <img id="drawer-art" src="" alt="Album art" style="display:none;" onload="this.style.display='block'" onerror="showArtPlaceholder()">
+    <img id="drawer-art" alt="Album art" style="display:none;">
     <div id="drawer-art-placeholder" class="drawer-art-placeholder" style="display:none;">
       <span>No Art Found</span>
     </div>
@@ -95,93 +98,168 @@
 </aside>
 
 <script>
-  // ── Table filter ──────────────────────────────────────────────
-  const searchInput = document.getElementById('search');
-  const rows = document.querySelectorAll('#releases-table tbody tr');
-  searchInput.addEventListener('input', () => {
-    const q = searchInput.value.toLowerCase();
-    rows.forEach(row => {
-      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
+  // ── Diagnostic: confirm this script block actually loaded ─────
+  console.log('[ThePit] script block loaded');
+
+  // ── Verify every drawer element exists in the DOM ─────────────
+  var _required = [
+    'drawer','drawer-overlay','drawer-artist','drawer-album-name',
+    'drawer-art','drawer-art-placeholder','drawer-art-loading',
+    'drawer-meta','drawer-type','drawer-genre','drawer-date',
+    'drawer-bio-loading','drawer-bio-text','drawer-bio-empty'
+  ];
+  _required.forEach(function(id) {
+    if (!document.getElementById(id)) {
+      console.error('[ThePit] MISSING DOM element: #' + id);
+    }
   });
 
-  // ── Drawer ────────────────────────────────────────────────────
-  let currentRequest = null;
-
-  function openDrawer(id, artist, album) {
-    // Abort any in-flight request
-    if (currentRequest) currentRequest.abort();
-
-    // Reset to loading state
-    document.getElementById('drawer-artist').textContent     = artist;
-    document.getElementById('drawer-album-name').textContent = album;
-    document.getElementById('drawer-art').style.display       = 'none';
-    document.getElementById('drawer-art-placeholder').style.display = 'none';
-    document.getElementById('drawer-art-loading').style.display     = 'flex';
-    document.getElementById('drawer-meta').style.display      = 'none';
-    document.getElementById('drawer-bio-text').style.display  = 'none';
-    document.getElementById('drawer-bio-empty').style.display = 'none';
-    document.getElementById('drawer-bio-loading').style.display = 'block';
-
-    // Open
-    document.getElementById('drawer').classList.add('open');
-    document.getElementById('drawer-overlay').classList.add('open');
-
-    // Fetch metadata
-    const controller = new AbortController();
-    currentRequest = controller;
-
-    fetch(`/release/${id}/meta`, { signal: controller.signal })
-      .then(r => r.json())
-      .then(data => {
-        currentRequest = null;
-
-        // Art
-        document.getElementById('drawer-art-loading').style.display = 'none';
-        if (data.art_url) {
-          document.getElementById('drawer-art').src = data.art_url;
-          // display is set via onload handler
-        } else {
-          showArtPlaceholder();
-        }
-
-        // Tags
-        if (data.type || data.genre || data.release_date) {
-          document.getElementById('drawer-type').textContent  = data.type  || '';
-          document.getElementById('drawer-genre').textContent = data.genre || '';
-          document.getElementById('drawer-date').textContent  = data.release_date || '';
-          document.getElementById('drawer-meta').style.display = 'flex';
-        }
-
-        // Bio
-        document.getElementById('drawer-bio-loading').style.display = 'none';
-        if (data.bio) {
-          const el = document.getElementById('drawer-bio-text');
-          el.textContent = data.bio;
-          el.style.display = 'block';
-        } else {
-          document.getElementById('drawer-bio-empty').style.display = 'block';
-        }
-      })
-      .catch(err => {
-        if (err.name === 'AbortError') return;
-        document.getElementById('drawer-art-loading').style.display = 'none';
-        showArtPlaceholder();
-        document.getElementById('drawer-bio-loading').textContent = 'Failed to load metadata.';
+  // ── Table filter ──────────────────────────────────────────────
+  try {
+    var searchInput = document.getElementById('search');
+    if (searchInput) {
+      var rows = document.querySelectorAll('#releases-table tbody tr');
+      console.log('[ThePit] filter wired up, ' + rows.length + ' rows found');
+      searchInput.addEventListener('input', function() {
+        var q = searchInput.value.toLowerCase();
+        rows.forEach(function(row) {
+          row.style.display = row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+        });
       });
+    }
+  } catch(filterErr) {
+    console.error('[ThePit] filter setup error:', filterErr);
   }
+
+  // ── Album click — event delegation ───────────────────────────
+  try {
+    document.addEventListener('click', function(e) {
+      try {
+        var btn = e.target.closest('.album-link');
+        if (!btn) return;
+        console.log('[ThePit] album clicked — id:', btn.dataset.id,
+                    '| artist:', btn.dataset.artist,
+                    '| album:', btn.dataset.album);
+        openDrawer(btn.dataset.id, btn.dataset.artist, btn.dataset.album);
+      } catch(clickErr) {
+        console.error('[ThePit] click handler error:', clickErr);
+      }
+    });
+    console.log('[ThePit] click listener registered');
+  } catch(listenerErr) {
+    console.error('[ThePit] failed to register click listener:', listenerErr);
+  }
+
+  // ── Drawer helpers ────────────────────────────────────────────
+  var currentRequest = null;
 
   function showArtPlaceholder() {
     document.getElementById('drawer-art').style.display = 'none';
     document.getElementById('drawer-art-placeholder').style.display = 'flex';
   }
 
+  function drawerError(msg) {
+    console.error('[ThePit] drawer error:', msg);
+    document.getElementById('drawer-art-loading').style.display = 'none';
+    showArtPlaceholder();
+    var bioEl = document.getElementById('drawer-bio-loading');
+    bioEl.style.display = 'block';
+    bioEl.textContent = 'Error: ' + msg;
+  }
+
+  function openDrawer(id, artist, album) {
+    console.log('[ThePit] openDrawer start — id:', id);
+
+    try {
+      if (currentRequest) {
+        console.log('[ThePit] aborting previous request');
+        currentRequest.abort();
+      }
+
+      document.getElementById('drawer-artist').textContent     = artist;
+      document.getElementById('drawer-album-name').textContent = album;
+      document.getElementById('drawer-art').style.display            = 'none';
+      document.getElementById('drawer-art-placeholder').style.display = 'none';
+      document.getElementById('drawer-art-loading').style.display    = 'flex';
+      document.getElementById('drawer-meta').style.display           = 'none';
+      document.getElementById('drawer-bio-text').style.display       = 'none';
+      document.getElementById('drawer-bio-empty').style.display      = 'none';
+      document.getElementById('drawer-bio-loading').style.display    = 'block';
+      document.getElementById('drawer-bio-loading').textContent      = 'Loading description…';
+
+      document.getElementById('drawer').classList.add('open');
+      document.getElementById('drawer-overlay').classList.add('open');
+      console.log('[ThePit] drawer opened, fetching /release/' + id + '/meta');
+
+      var controller = new AbortController();
+      currentRequest = controller;
+
+      fetch('/release/' + id + '/meta', { signal: controller.signal })
+        .then(function(r) {
+          console.log('[ThePit] response status:', r.status);
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function(data) {
+          console.log('[ThePit] meta received:', JSON.stringify(data).slice(0, 200));
+          currentRequest = null;
+          document.getElementById('drawer-art-loading').style.display = 'none';
+
+          if (data.error) {
+            drawerError(data.error);
+            return;
+          }
+
+          if (data.art_url) {
+            console.log('[ThePit] loading art from:', data.art_url);
+            var img = document.getElementById('drawer-art');
+            img.onload  = function() { console.log('[ThePit] art loaded OK'); img.style.display = 'block'; };
+            img.onerror = function() { console.warn('[ThePit] art failed to load'); showArtPlaceholder(); };
+            img.src = data.art_url;
+          } else {
+            console.log('[ThePit] no art_url returned');
+            showArtPlaceholder();
+          }
+
+          if (data.type || data.genre || data.release_date) {
+            document.getElementById('drawer-type').textContent  = data.type         || '';
+            document.getElementById('drawer-genre').textContent = data.genre        || '';
+            document.getElementById('drawer-date').textContent  = data.release_date || '';
+            document.getElementById('drawer-meta').style.display = 'flex';
+          }
+
+          document.getElementById('drawer-bio-loading').style.display = 'none';
+          if (data.bio) {
+            console.log('[ThePit] bio found, length:', data.bio.length);
+            var bioEl = document.getElementById('drawer-bio-text');
+            bioEl.textContent = data.bio;
+            bioEl.style.display = 'block';
+          } else {
+            console.log('[ThePit] no bio returned');
+            document.getElementById('drawer-bio-empty').style.display = 'block';
+          }
+        })
+        .catch(function(err) {
+          if (err.name === 'AbortError') {
+            console.log('[ThePit] fetch aborted (new album selected)');
+            return;
+          }
+          drawerError(err.message || 'fetch failed');
+        });
+
+    } catch(openErr) {
+      console.error('[ThePit] openDrawer exception:', openErr);
+    }
+  }
+
   function closeDrawer() {
     document.getElementById('drawer').classList.remove('open');
     document.getElementById('drawer-overlay').classList.remove('open');
     if (currentRequest) { currentRequest.abort(); currentRequest = null; }
+    console.log('[ThePit] drawer closed');
   }
 
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDrawer(); });
+  console.log('[ThePit] all setup complete');
 </script>
 {% endblock %}

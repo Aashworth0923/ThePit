@@ -41,6 +41,7 @@ _cache = {}
 
 def _search_mb(artist, album):
     """Search MusicBrainz for a release. Returns (release_mbid, release_group_mbid)."""
+    print(f"[mb] searching: artist={artist!r} album={album!r}", flush=True)
     try:
         resp = requests.get(
             MB_SEARCH_URL,
@@ -52,32 +53,37 @@ def _search_mb(artist, album):
             headers=MB_HEADERS,
             timeout=TIMEOUT,
         )
+        print(f"[mb] search status: {resp.status_code}", flush=True)
         if resp.status_code == 200:
             releases = resp.json().get("releases", [])
+            print(f"[mb] releases found: {len(releases)}", flush=True)
             if releases:
                 r = releases[0]
-                return r.get("id"), r.get("release-group", {}).get("id")
-    except Exception:
-        pass
+                rid, rgid = r.get("id"), r.get("release-group", {}).get("id")
+                print(f"[mb] best match: release={rid} release-group={rgid}", flush=True)
+                return rid, rgid
+        print("[mb] no match found", flush=True)
+    except Exception as e:
+        print(f"[mb] search error: {e}", flush=True)
     return None, None
 
 
 def _get_art_url(release_mbid, rg_mbid):
     """Try Cover Art Archive for a release, then fall back to the release group."""
     def _try(endpoint):
+        print(f"[caa] trying: {endpoint}", flush=True)
         try:
             r = requests.get(endpoint, timeout=TIMEOUT)
+            print(f"[caa] status: {r.status_code}", flush=True)
             if r.status_code == 200:
                 images = r.json().get("images", [])
                 if images:
                     thumbs = images[0].get("thumbnails", {})
-                    return (
-                        thumbs.get("500")
-                        or thumbs.get("large")
-                        or images[0].get("image")
-                    )
-        except Exception:
-            pass
+                    url = thumbs.get("500") or thumbs.get("large") or images[0].get("image")
+                    print(f"[caa] art url: {url}", flush=True)
+                    return url
+        except Exception as e:
+            print(f"[caa] error: {e}", flush=True)
         return None
 
     if release_mbid:
@@ -86,13 +92,16 @@ def _get_art_url(release_mbid, rg_mbid):
             return url
     if rg_mbid:
         return _try(f"{CAA_URL}/release-group/{rg_mbid}")
+    print("[caa] no art found", flush=True)
     return None
 
 
 def _get_bio(artist):
     """Fetch and clean an artist bio from Last.fm."""
     if not LASTFM_API_KEY:
+        print("[lastfm] no API key set — skipping bio", flush=True)
         return None
+    print(f"[lastfm] fetching bio for: {artist!r}", flush=True)
     try:
         resp = requests.get(
             LASTFM_URL,
@@ -104,20 +113,19 @@ def _get_bio(artist):
             },
             timeout=TIMEOUT,
         )
+        print(f"[lastfm] status: {resp.status_code}", flush=True)
         if resp.status_code == 200:
             raw = resp.json().get("artist", {}).get("bio", {}).get("summary", "")
-            # Strip HTML tags
             clean = re.sub(r"<[^>]+>", "", raw)
-            # Remove Last.fm attribution footer
-            clean = re.sub(
-                r"User-contributed text.*?under the.*?License.*$", "", clean, flags=re.S
-            )
+            clean = re.sub(r"User-contributed text.*?under the.*?License.*$", "", clean, flags=re.S)
             clean = re.sub(r"Read more on Last\.fm\.*", "", clean)
             clean = re.sub(r"\s+", " ", clean).strip()
             if clean and len(clean) > 20:
+                print(f"[lastfm] bio found, {len(clean)} chars", flush=True)
                 return clean
-    except Exception:
-        pass
+            print("[lastfm] bio empty or too short", flush=True)
+    except Exception as e:
+        print(f"[lastfm] error: {e}", flush=True)
     return None
 
 

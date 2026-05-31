@@ -50,21 +50,34 @@ def get_releases():
 
 @app.route("/release/<int:release_id>/meta")
 def release_meta(release_id):
-    release = db.get_release_by_id(release_id)
-    if not release:
-        return jsonify({"error": "Not found"}), 404
+    print(f"[meta] request for id={release_id}", flush=True)
+    try:
+        release = db.get_release_by_id(release_id)
+        if not release:
+            print(f"[meta] id={release_id} not found in DB", flush=True)
+            return jsonify({"error": "Release not found"}), 404
 
-    meta = metadata.get_release_meta(release["artist"], release["album"])
-    return jsonify({
-        "artist":       release["artist"],
-        "album":        release["album"],
-        "type":         release["type"],
-        "genre":        release["genre"],
-        "release_date": release["release_date"],
-        "art_url":      meta["art_url"],
-        "bio":          meta["bio"],
-        "cached":       meta["cached"],
-    })
+        print(f"[meta] found: {release['artist']} — {release['album']}", flush=True)
+
+        meta = metadata.get_release_meta(release["artist"], release["album"])
+        print(f"[meta] art={'found' if meta['art_url'] else 'none'} | "
+              f"bio={'found' if meta['bio'] else 'none'} | "
+              f"cached={meta['cached']}", flush=True)
+
+        return jsonify({
+            "artist":       release["artist"],
+            "album":        release["album"],
+            "type":         release["type"],
+            "genre":        release["genre"],
+            "release_date": release["release_date"],
+            "art_url":      meta["art_url"],
+            "bio":          meta["bio"],
+            "cached":       meta["cached"],
+        })
+    except Exception as e:
+        print(f"[meta] ERROR: {e}", flush=True)
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
