@@ -25,17 +25,22 @@ A personal, local desktop app for tracking weekly metal music releases.
 
 | Component | File(s) | Status |
 |---|---|---|
-| Database schema | `db.py`, `metal_releases.db` | Done |
+| Database schema (releases + lists) | `db.py`, `metal_releases.db` | Done |
 | Bulk importer (from .txt) | `import_releases.py` | Done |
 | Metal Archives scraper | `fetch_releases.py` | Done |
 | Flask web app + routes | `app.py` | Done |
-| Home page — releases table with live filter | `templates/index.html` | Done |
+| VS Code-style tab navigation | `base.html`, `style.css` | Done |
+| Home page (root, placeholder) | `templates/home.html` | Done |
+| Releases page — table, filters, drawer | `templates/index.html` | Done |
+| Lists page — create/delete named lists | `templates/lists.html` | Done |
 | Get Releases page — date picker | `templates/get_releases.html` | Done |
-| Dark theme UI | `static/style.css` | Done |
 | Album art + artist bio on demand | `metadata.py` | Done |
 | Slide-out release drawer | `templates/index.html` | Done |
-| Dev launcher (C:\, no VeraCrypt needed) | `dev.bat` | Done |
-| Production launcher (A:\) | `ThePit.bat` | Done |
+| Column filters (date range, type checkboxes) | `templates/index.html` | Done |
+| PyWebView native window launcher + auto-updater | `launcher.py` | Done |
+| Dev launcher (C:\, no VeraCrypt) | `dev.bat` | Done |
+| Production launcher (A:\, Desktop shortcut) | `ThePit.bat`, `create_shortcut.ps1` | Done |
+| PyInstaller build pipeline | `ThePit.spec`, `build.bat` | Done |
 
 ### How to run — development (C:\)
 
@@ -268,13 +273,15 @@ Epics are numbered in intended build order:
 | # | Epic | Status |
 |---|---|---|
 | 1 | **Data Ingestion** — import .txt files, scraper from Metal Archives | ✅ Done |
-| 2 | **Local App Shell** — Flask app, home table, get releases page | ✅ Done |
+| 2 | **Local App Shell** — Flask app, VS Code tabs, home/releases/lists pages | ✅ Done |
 | 2b | **Rich Metadata Drawer** — album art + bio slide-out panel, stream not store | ✅ Done |
-| 3 | **Release Browser / To-Do View** — filter by type/genre/date, mark listened/skipped/queued | Next |
-| 4 | **Priority Flagging** — star releases, auto-flag by label or genre | Planned |
-| 5 | **Scraper Scheduling** — weekly auto-fetch via cron or in-app refresh | Planned |
+| 2c | **Native App** — PyWebView launcher, auto-updater, Desktop shortcut | ✅ Done |
+| 3 | **Release Browser / To-Do View** — column filters (date, type), date formatting, Lists tab | 🔄 In progress |
+| 3 cont | — mark listened/skipped/queued, starred, notes per album | Next |
+| 4 | **Priority Flagging** — auto-flag by label or genre | Planned |
+| 5 | **Scraper Scheduling** — weekly auto-fetch | Planned |
 | 6 | **Notes & Ratings** — per-album after listening | Planned |
-| 7 | **AI Integration** — Claude API auto-researches releases, writes priority scores | Planned |
+| 7 | **AI Integration** — Claude API priority scores | Planned |
 
 ---
 

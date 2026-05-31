@@ -16,6 +16,7 @@
     <div class="tab-bar">
       <a href="{{ url_for('home') }}"     class="nav-tab {% if request.endpoint == 'home'     %}active{% endif %}">Home</a>
       <a href="{{ url_for('releases') }}" class="nav-tab {% if request.endpoint == 'releases' %}active{% endif %}">Releases</a>
+      <a href="{{ url_for('lists') }}"    class="nav-tab {% if request.endpoint == 'lists'    %}active{% endif %}">Lists</a>
     </div>
   </header>
 

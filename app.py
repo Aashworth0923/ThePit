@@ -19,6 +19,18 @@ else:
 app.secret_key = "thepitlocal"
 
 
+@app.template_filter("fmt_date")
+def fmt_date(value):
+    """Convert YYYY-MM-DD storage format to MM/DD/YYYY for display."""
+    if not value:
+        return value
+    try:
+        from datetime import datetime
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%m/%d/%Y")
+    except ValueError:
+        return value
+
+
 @app.route("/favicon.ico")
 def favicon():
     folder = os.environ.get("THEPIT_APP_DIR", ".")
@@ -38,7 +50,35 @@ def home():
 @app.route("/releases")
 def releases():
     all_releases = db.get_all_releases()
-    return render_template("index.html", releases=all_releases)
+    type_values  = db.get_release_types()
+    return render_template("index.html", releases=all_releases, type_values=type_values)
+
+
+@app.route("/lists")
+def lists():
+    all_lists = db.get_all_lists()
+    return render_template("lists.html", lists=all_lists)
+
+
+@app.route("/lists/new", methods=["POST"])
+def lists_new():
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("List name cannot be empty.", "error")
+        return redirect(url_for("lists"))
+    try:
+        db.create_list(name, request.form.get("description", ""))
+        flash(f'List "{name}" created.', "success")
+    except Exception:
+        flash(f'A list named "{name}" already exists.', "error")
+    return redirect(url_for("lists"))
+
+
+@app.route("/lists/<int:list_id>/delete", methods=["POST"])
+def lists_delete(list_id):
+    db.delete_list(list_id)
+    flash("List deleted.", "success")
+    return redirect(url_for("lists"))
 
 
 @app.route("/get-releases", methods=["GET", "POST"])

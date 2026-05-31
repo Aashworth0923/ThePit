@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Lists — The Pit{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Lists</h1>
+    <span class="count">{{ lists|length }} list{{ 's' if lists|length != 1 }}</span>
+  </div>
+</div>
+
+<!-- Create list form -->
+<form method="POST" action="{{ url_for('lists_new') }}" class="new-list-form">
+  <input type="text" name="name" placeholder="New list name…" maxlength="80" required autocomplete="off">
+  <input type="text" name="description" placeholder="Description (optional)" maxlength="200">
+  <button type="submit" class="btn btn-primary">Create List</button>
+</form>
+
+{% if lists %}
+<div class="table-wrap" style="margin-top:24px;">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Created</th>
+        <th>Releases</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in lists %}
+      <tr>
+        <td class="list-name">{{ l.name }}</td>
+        <td class="col-muted">{{ l.description or '—' }}</td>
+        <td class="col-date col-muted">{{ l.created_at | fmt_date }}</td>
+        <td style="text-align:center; color:var(--muted)">{{ l.release_count }}</td>
+        <td style="text-align:right; padding-right:16px;">
+          <form method="POST" action="{{ url_for('lists_delete', list_id=l.id) }}"
+                onsubmit="return confirm('Delete list {{ l.name | e }}?')">
+            <button type="submit" class="btn-icon-danger" title="Delete list">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No lists yet. Create one above.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -19,7 +19,7 @@ def get_db():
 
 
 def init_db():
-    """Create the releases table if it doesn't exist yet."""
+    """Create all tables if they don't exist yet."""
     conn = get_db()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS releases (
@@ -34,6 +34,14 @@ def init_db():
             rating       INTEGER,
             notes        TEXT,
             UNIQUE(artist, album)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS lists (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT    NOT NULL UNIQUE,
+            description TEXT,
+            created_at  TEXT    DEFAULT (date('now'))
         )
     """)
     conn.commit()
@@ -74,6 +82,59 @@ def get_release_by_id(release_id):
         return conn.execute(
             "SELECT * FROM releases WHERE id = ?", (release_id,)
         ).fetchone()
+    finally:
+        conn.close()
+
+
+def get_release_types():
+    """Return sorted list of distinct type values for filter dropdowns."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT type FROM releases WHERE type != '' ORDER BY type"
+        ).fetchall()
+        return [r["type"] for r in rows]
+    finally:
+        conn.close()
+
+
+# ── Lists ──────────────────────────────────────────────────────────────────────
+
+def get_all_lists():
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT l.*, COUNT(lr.release_id) AS release_count "
+            "FROM lists l "
+            "LEFT JOIN list_releases lr ON l.id = lr.list_id "
+            "GROUP BY l.id ORDER BY l.created_at DESC"
+        ).fetchall()
+    except Exception:
+        # list_releases table may not exist yet — return without count
+        return conn.execute(
+            "SELECT *, 0 AS release_count FROM lists ORDER BY created_at DESC"
+        ).fetchall()
+    finally:
+        conn.close()
+
+
+def create_list(name, description=""):
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO lists (name, description) VALUES (?, ?)",
+            (name.strip(), description.strip()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_list(list_id):
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM lists WHERE id = ?", (list_id,))
+        conn.commit()
     finally:
         conn.close()
 

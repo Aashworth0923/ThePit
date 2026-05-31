@@ -5,23 +5,73 @@
 <div class="page-header">
   <div>
     <h1>Releases</h1>
-    <span class="count">{{ releases|length }} total</span>
+    <span class="count" id="visible-count">{{ releases|length }} total</span>
   </div>
   <div class="page-actions">
-    <input type="text" id="search" placeholder="Filter releases…" autocomplete="off">
+    <input type="text" id="search" placeholder="Search releases…" autocomplete="off">
     <a href="{{ url_for('get_releases') }}" class="btn btn-primary">Get Releases</a>
   </div>
 </div>
 
+<!-- Active filter chips bar (hidden until a filter is applied) -->
+<div class="filter-bar" id="filter-bar" style="display:none;">
+  <span class="filter-bar-label">Filters</span>
+  <div class="filter-chips" id="filter-chips"></div>
+  <button class="btn btn-ghost btn-sm" onclick="clearAllFilters()">Clear all</button>
+</div>
+
 {% if releases %}
-<div class="table-wrap">
+<div class="table-wrap" style="position:relative;">
   <table id="releases-table">
     <thead>
       <tr>
-        <th>Date</th>
+        <th class="col-th-date">
+          Date
+          <button class="filter-icon" id="fi-date" onclick="togglePopover('date')" title="Filter by date">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
+          </button>
+          <!-- Date range popover -->
+          <div class="filter-popover" id="pop-date">
+            <div class="filter-popover-inner">
+              <div class="fp-row">
+                <label>From</label>
+                <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31">
+              </div>
+              <div class="fp-row">
+                <label>To</label>
+                <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31">
+              </div>
+              <div class="fp-actions">
+                <button class="btn btn-primary btn-sm" onclick="applyDateFilter()">Apply</button>
+                <button class="btn btn-ghost btn-sm" onclick="clearFilter('date')">Clear</button>
+              </div>
+            </div>
+          </div>
+        </th>
         <th>Artist</th>
         <th>Album</th>
-        <th>Type</th>
+        <th class="col-th-type">
+          Type
+          <button class="filter-icon" id="fi-type" onclick="togglePopover('type')" title="Filter by type">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 10.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
+          </button>
+          <!-- Type popover -->
+          <div class="filter-popover" id="pop-type">
+            <div class="filter-popover-inner">
+              <div class="fp-checkboxes" id="fp-type-checks">
+                {% for t in type_values %}
+                <label class="fp-check-row">
+                  <input type="checkbox" class="type-check" value="{{ t | e }}"> {{ t }}
+                </label>
+                {% endfor %}
+              </div>
+              <div class="fp-actions">
+                <button class="btn btn-primary btn-sm" onclick="applyTypeFilter()">Apply</button>
+                <button class="btn btn-ghost btn-sm" onclick="clearFilter('type')">Clear</button>
+              </div>
+            </div>
+          </div>
+        </th>
         <th>Genre</th>
         <th>★</th>
         <th>Listened</th>
@@ -30,8 +80,12 @@
     </thead>
     <tbody>
       {% for r in releases %}
-      <tr>
-        <td class="col-date">{{ r.release_date }}</td>
+      <tr data-date="{{ r.release_date }}"
+          data-type="{{ r.type | e }}"
+          data-genre="{{ r.genre | e }}"
+          data-artist="{{ r.artist | e }}"
+          data-album="{{ r.album | e }}">
+        <td class="col-date">{{ r.release_date | fmt_date }}</td>
         <td class="col-artist">{{ r.artist }}</td>
         <td class="col-album">
           <button class="album-link"
@@ -70,23 +124,16 @@
     </div>
     <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">&times;</button>
   </div>
-
   <div class="drawer-art-wrap">
     <img id="drawer-art" alt="Album art" style="display:none;">
-    <div id="drawer-art-placeholder" class="drawer-art-placeholder" style="display:none;">
-      <span>No Art Found</span>
-    </div>
-    <div id="drawer-art-loading" class="drawer-art-placeholder">
-      <span class="pulse">Loading…</span>
-    </div>
+    <div id="drawer-art-placeholder" class="drawer-art-placeholder" style="display:none;"><span>No Art Found</span></div>
+    <div id="drawer-art-loading" class="drawer-art-placeholder"><span class="pulse">Loading…</span></div>
   </div>
-
   <div class="drawer-meta" id="drawer-meta" style="display:none;">
     <span id="drawer-type" class="drawer-tag"></span>
     <span id="drawer-genre" class="drawer-tag drawer-tag-genre"></span>
     <span id="drawer-date" class="drawer-tag drawer-tag-date"></span>
   </div>
-
   <div class="drawer-bio-section">
     <div id="drawer-bio-loading" class="drawer-bio-status">Loading description…</div>
     <p id="drawer-bio-text" style="display:none;"></p>
@@ -98,59 +145,155 @@
 </aside>
 
 <script>
-  // ── Diagnostic: confirm this script block actually loaded ─────
   console.log('[ThePit] script block loaded');
 
-  // ── Verify every drawer element exists in the DOM ─────────────
-  var _required = [
-    'drawer','drawer-overlay','drawer-artist','drawer-album-name',
-    'drawer-art','drawer-art-placeholder','drawer-art-loading',
-    'drawer-meta','drawer-type','drawer-genre','drawer-date',
-    'drawer-bio-loading','drawer-bio-text','drawer-bio-empty'
-  ];
-  _required.forEach(function(id) {
-    if (!document.getElementById(id)) {
-      console.error('[ThePit] MISSING DOM element: #' + id);
+  // ── Filter state ──────────────────────────────────────────────
+  var filters = { dateFrom: null, dateTo: null, types: [], search: '' };
+  var allRows = Array.from(document.querySelectorAll('#releases-table tbody tr'));
+
+  // ── Text search ───────────────────────────────────────────────
+  var searchInput = document.getElementById('search');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      filters.search = searchInput.value.toLowerCase();
+      applyAllFilters();
+    });
+  }
+
+  // ── Popover toggle ────────────────────────────────────────────
+  var openPopover = null;
+
+  function togglePopover(name) {
+    var pop = document.getElementById('pop-' + name);
+    if (!pop) return;
+    var isOpen = pop.classList.contains('visible');
+    closeAllPopovers();
+    if (!isOpen) {
+      pop.classList.add('visible');
+      openPopover = name;
     }
+  }
+
+  function closeAllPopovers() {
+    document.querySelectorAll('.filter-popover.visible').forEach(function(p) {
+      p.classList.remove('visible');
+    });
+    openPopover = null;
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.col-th-date, .col-th-type')) closeAllPopovers();
   });
 
-  // ── Table filter ──────────────────────────────────────────────
-  try {
-    var searchInput = document.getElementById('search');
-    if (searchInput) {
-      var rows = document.querySelectorAll('#releases-table tbody tr');
-      console.log('[ThePit] filter wired up, ' + rows.length + ' rows found');
-      searchInput.addEventListener('input', function() {
-        var q = searchInput.value.toLowerCase();
-        rows.forEach(function(row) {
-          row.style.display = row.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-        });
-      });
+  // ── Date filter ───────────────────────────────────────────────
+  function applyDateFilter() {
+    filters.dateFrom = document.getElementById('fp-date-from').value || null;
+    filters.dateTo   = document.getElementById('fp-date-to').value   || null;
+    closeAllPopovers();
+    applyAllFilters();
+  }
+
+  // ── Type filter ───────────────────────────────────────────────
+  function applyTypeFilter() {
+    filters.types = Array.from(document.querySelectorAll('.type-check:checked'))
+                         .map(function(cb) { return cb.value; });
+    closeAllPopovers();
+    applyAllFilters();
+  }
+
+  // ── Clear a single filter ─────────────────────────────────────
+  function clearFilter(name) {
+    if (name === 'date') {
+      filters.dateFrom = null; filters.dateTo = null;
+      document.getElementById('fp-date-from').value = '';
+      document.getElementById('fp-date-to').value   = '';
     }
-  } catch(filterErr) {
-    console.error('[ThePit] filter setup error:', filterErr);
+    if (name === 'type') {
+      filters.types = [];
+      document.querySelectorAll('.type-check').forEach(function(cb) { cb.checked = false; });
+    }
+    closeAllPopovers();
+    applyAllFilters();
   }
 
-  // ── Album click — event delegation ───────────────────────────
-  try {
-    document.addEventListener('click', function(e) {
-      try {
-        var btn = e.target.closest('.album-link');
-        if (!btn) return;
-        console.log('[ThePit] album clicked — id:', btn.dataset.id,
-                    '| artist:', btn.dataset.artist,
-                    '| album:', btn.dataset.album);
-        openDrawer(btn.dataset.id, btn.dataset.artist, btn.dataset.album);
-      } catch(clickErr) {
-        console.error('[ThePit] click handler error:', clickErr);
-      }
+  function clearAllFilters() {
+    clearFilter('date');
+    clearFilter('type');
+    filters.search = '';
+    if (searchInput) searchInput.value = '';
+    applyAllFilters();
+  }
+
+  // ── Core filter engine ────────────────────────────────────────
+  function applyAllFilters() {
+    var visible = 0;
+    allRows.forEach(function(row) {
+      var show = true;
+
+      // Date range
+      if (filters.dateFrom && row.dataset.date < filters.dateFrom) show = false;
+      if (filters.dateTo   && row.dataset.date > filters.dateTo)   show = false;
+
+      // Type (any of the checked values)
+      if (filters.types.length > 0 && filters.types.indexOf(row.dataset.type) === -1) show = false;
+
+      // Text search across all cells
+      if (filters.search && row.textContent.toLowerCase().indexOf(filters.search) === -1) show = false;
+
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
     });
-    console.log('[ThePit] click listener registered');
-  } catch(listenerErr) {
-    console.error('[ThePit] failed to register click listener:', listenerErr);
+
+    updateCountLabel(visible);
+    updateFilterBar();
+    updateFilterIcons();
   }
 
-  // ── Drawer helpers ────────────────────────────────────────────
+  // ── UI updates ────────────────────────────────────────────────
+  function updateCountLabel(visible) {
+    var el = document.getElementById('visible-count');
+    if (!el) return;
+    var total = allRows.length;
+    el.textContent = visible === total ? total + ' total' : visible + ' of ' + total;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var p = iso.split('-');
+    return p[1] + '/' + p[2] + '/' + p[0];
+  }
+
+  function updateFilterBar() {
+    var chips = [];
+    if (filters.dateFrom || filters.dateTo) {
+      var label = 'Date: ' + (filters.dateFrom ? fmtDate(filters.dateFrom) : '…')
+                + ' – ' + (filters.dateTo   ? fmtDate(filters.dateTo)   : '…');
+      chips.push({ label: label, clear: 'date' });
+    }
+    if (filters.types.length > 0) {
+      chips.push({ label: 'Type: ' + filters.types.join(', '), clear: 'type' });
+    }
+
+    var bar       = document.getElementById('filter-bar');
+    var chipsEl   = document.getElementById('filter-chips');
+    bar.style.display = chips.length > 0 ? 'flex' : 'none';
+    chipsEl.innerHTML = chips.map(function(c) {
+      return '<span class="filter-chip">'
+           + c.label
+           + ' <button onclick="clearFilter(\'' + c.clear + '\')" title="Remove filter">×</button>'
+           + '</span>';
+    }).join('');
+  }
+
+  function updateFilterIcons() {
+    var dateActive = filters.dateFrom || filters.dateTo;
+    var typeActive = filters.types.length > 0;
+    document.getElementById('fi-date').classList.toggle('active', !!dateActive);
+    document.getElementById('fi-type').classList.toggle('active', !!typeActive);
+  }
+
+  // ── Drawer ────────────────────────────────────────────────────
+  console.log('[ThePit] setting up click listener');
   var currentRequest = null;
 
   function showArtPlaceholder() {
@@ -159,107 +302,74 @@
   }
 
   function drawerError(msg) {
-    console.error('[ThePit] drawer error:', msg);
     document.getElementById('drawer-art-loading').style.display = 'none';
     showArtPlaceholder();
-    var bioEl = document.getElementById('drawer-bio-loading');
-    bioEl.style.display = 'block';
-    bioEl.textContent = 'Error: ' + msg;
+    var b = document.getElementById('drawer-bio-loading');
+    b.style.display = 'block'; b.textContent = 'Error: ' + msg;
   }
 
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.album-link');
+    if (!btn) return;
+    console.log('[ThePit] album clicked id:', btn.dataset.id);
+    openDrawer(btn.dataset.id, btn.dataset.artist, btn.dataset.album);
+  });
+
   function openDrawer(id, artist, album) {
-    console.log('[ThePit] openDrawer start — id:', id);
+    if (currentRequest) currentRequest.abort();
+    document.getElementById('drawer-artist').textContent     = artist;
+    document.getElementById('drawer-album-name').textContent = album;
+    document.getElementById('drawer-art').style.display            = 'none';
+    document.getElementById('drawer-art-placeholder').style.display = 'none';
+    document.getElementById('drawer-art-loading').style.display    = 'flex';
+    document.getElementById('drawer-meta').style.display           = 'none';
+    document.getElementById('drawer-bio-text').style.display       = 'none';
+    document.getElementById('drawer-bio-empty').style.display      = 'none';
+    document.getElementById('drawer-bio-loading').style.display    = 'block';
+    document.getElementById('drawer-bio-loading').textContent      = 'Loading description…';
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('drawer-overlay').classList.add('open');
 
-    try {
-      if (currentRequest) {
-        console.log('[ThePit] aborting previous request');
-        currentRequest.abort();
-      }
-
-      document.getElementById('drawer-artist').textContent     = artist;
-      document.getElementById('drawer-album-name').textContent = album;
-      document.getElementById('drawer-art').style.display            = 'none';
-      document.getElementById('drawer-art-placeholder').style.display = 'none';
-      document.getElementById('drawer-art-loading').style.display    = 'flex';
-      document.getElementById('drawer-meta').style.display           = 'none';
-      document.getElementById('drawer-bio-text').style.display       = 'none';
-      document.getElementById('drawer-bio-empty').style.display      = 'none';
-      document.getElementById('drawer-bio-loading').style.display    = 'block';
-      document.getElementById('drawer-bio-loading').textContent      = 'Loading description…';
-
-      document.getElementById('drawer').classList.add('open');
-      document.getElementById('drawer-overlay').classList.add('open');
-      console.log('[ThePit] drawer opened, fetching /release/' + id + '/meta');
-
-      var controller = new AbortController();
-      currentRequest = controller;
-
-      fetch('/release/' + id + '/meta', { signal: controller.signal })
-        .then(function(r) {
-          console.log('[ThePit] response status:', r.status);
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.json();
-        })
-        .then(function(data) {
-          console.log('[ThePit] meta received:', JSON.stringify(data).slice(0, 200));
-          currentRequest = null;
-          document.getElementById('drawer-art-loading').style.display = 'none';
-
-          if (data.error) {
-            drawerError(data.error);
-            return;
-          }
-
-          if (data.art_url) {
-            console.log('[ThePit] loading art from:', data.art_url);
-            var img = document.getElementById('drawer-art');
-            img.onload  = function() { console.log('[ThePit] art loaded OK'); img.style.display = 'block'; };
-            img.onerror = function() { console.warn('[ThePit] art failed to load'); showArtPlaceholder(); };
-            img.src = data.art_url;
-          } else {
-            console.log('[ThePit] no art_url returned');
-            showArtPlaceholder();
-          }
-
-          if (data.type || data.genre || data.release_date) {
-            document.getElementById('drawer-type').textContent  = data.type         || '';
-            document.getElementById('drawer-genre').textContent = data.genre        || '';
-            document.getElementById('drawer-date').textContent  = data.release_date || '';
-            document.getElementById('drawer-meta').style.display = 'flex';
-          }
-
-          document.getElementById('drawer-bio-loading').style.display = 'none';
-          if (data.bio) {
-            console.log('[ThePit] bio found, length:', data.bio.length);
-            var bioEl = document.getElementById('drawer-bio-text');
-            bioEl.textContent = data.bio;
-            bioEl.style.display = 'block';
-          } else {
-            console.log('[ThePit] no bio returned');
-            document.getElementById('drawer-bio-empty').style.display = 'block';
-          }
-        })
-        .catch(function(err) {
-          if (err.name === 'AbortError') {
-            console.log('[ThePit] fetch aborted (new album selected)');
-            return;
-          }
-          drawerError(err.message || 'fetch failed');
-        });
-
-    } catch(openErr) {
-      console.error('[ThePit] openDrawer exception:', openErr);
-    }
+    var controller = new AbortController();
+    currentRequest = controller;
+    fetch('/release/' + id + '/meta', { signal: controller.signal })
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(data) {
+        currentRequest = null;
+        document.getElementById('drawer-art-loading').style.display = 'none';
+        if (data.art_url) {
+          var img = document.getElementById('drawer-art');
+          img.onload  = function() { img.style.display = 'block'; };
+          img.onerror = function() { showArtPlaceholder(); };
+          img.src = data.art_url;
+        } else { showArtPlaceholder(); }
+        if (data.type || data.genre || data.release_date) {
+          document.getElementById('drawer-type').textContent  = data.type         || '';
+          document.getElementById('drawer-genre').textContent = data.genre        || '';
+          document.getElementById('drawer-date').textContent  = data.release_date || '';
+          document.getElementById('drawer-meta').style.display = 'flex';
+        }
+        document.getElementById('drawer-bio-loading').style.display = 'none';
+        if (data.bio) {
+          var el = document.getElementById('drawer-bio-text');
+          el.textContent = data.bio; el.style.display = 'block';
+        } else {
+          document.getElementById('drawer-bio-empty').style.display = 'block';
+        }
+      })
+      .catch(function(err) {
+        if (err.name === 'AbortError') return;
+        drawerError(err.message || 'fetch failed');
+      });
   }
 
   function closeDrawer() {
     document.getElementById('drawer').classList.remove('open');
     document.getElementById('drawer-overlay').classList.remove('open');
     if (currentRequest) { currentRequest.abort(); currentRequest = null; }
-    console.log('[ThePit] drawer closed');
   }
 
-  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDrawer(); });
-  console.log('[ThePit] all setup complete');
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeDrawer(); closeAllPopovers(); } });
+  console.log('[ThePit] setup complete');
 </script>
 {% endblock %}
