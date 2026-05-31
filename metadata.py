@@ -134,11 +134,47 @@ def _get_bio(artist):
     return None
 
 
-def get_release_meta(artist, album):
+def _get_ma_art_url(ma_album_id):
+    """
+    Try to fetch album art directly from the Metal Archives CDN.
+    URL pattern: /images/{d1}/{d2}/{d3}/{d4}/{id}.jpg
+    Uses HEAD request — just checks existence, doesn't download the image.
+    Returns the URL if the image exists, None otherwise.
+    """
+    if not ma_album_id:
+        return None
+    id_str = str(ma_album_id)
+    if len(id_str) < 4:
+        return None
+    path = "/".join(id_str[:4])
+    url  = f"https://www.metal-archives.com/images/{path}/{id_str}.jpg"
+    print(f"[ma-art] trying: {url}", flush=True)
+    try:
+        r = requests.head(url, timeout=TIMEOUT, headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Referer": "https://www.metal-archives.com/",
+        })
+        print(f"[ma-art] status: {r.status_code}", flush=True)
+        if r.status_code == 200:
+            return url
+    except Exception as e:
+        print(f"[ma-art] error: {e}", flush=True)
+    return None
+
+
+def get_release_meta(artist, album, ma_album_id=None):
     """
     Main entry point. Returns:
       {art_url: str|None, bio: str|None, cached: bool}
     Results are cached in-process for the session.
+
+    Fallback chain for art:
+      1. MusicBrainz / Cover Art Archive
+      2. Metal Archives CDN (if ma_album_id is provided)
     """
     key = (artist.lower().strip(), album.lower().strip())
     if key in _cache:
@@ -146,9 +182,16 @@ def get_release_meta(artist, album):
 
     result = {"art_url": None, "bio": None}
 
+    # 1. MusicBrainz / Cover Art Archive
     release_mbid, rg_mbid = _search_mb(artist, album)
     if release_mbid or rg_mbid:
         result["art_url"] = _get_art_url(release_mbid, rg_mbid)
+
+    # 2. Metal Archives CDN fallback
+    if not result["art_url"] and ma_album_id:
+        result["art_url"] = _get_ma_art_url(ma_album_id)
+        if result["art_url"]:
+            print(f"[ma-art] used MA fallback for {artist!r} / {album!r}", flush=True)
 
     # Brief pause — MusicBrainz asks for max 1 req/sec
     time.sleep(0.6)

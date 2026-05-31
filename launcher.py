@@ -31,8 +31,9 @@ else:
     BUNDLE_DIR = os.path.dirname(os.path.abspath(__file__))
     APP_DIR    = BUNDLE_DIR
 
-os.environ["THEPIT_BUNDLE_DIR"] = BUNDLE_DIR
-os.environ["THEPIT_APP_DIR"]    = APP_DIR
+os.environ["THEPIT_BUNDLE_DIR"]      = BUNDLE_DIR
+os.environ["THEPIT_APP_DIR"]         = APP_DIR
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = os.path.join(APP_DIR, "browsers")
 os.chdir(APP_DIR)
 
 from app import app as flask_app

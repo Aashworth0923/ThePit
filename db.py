@@ -36,6 +36,11 @@ def init_db():
             UNIQUE(artist, album)
         )
     """)
+    # Add ma_album_id if the table already existed without it
+    try:
+        conn.execute("ALTER TABLE releases ADD COLUMN ma_album_id TEXT")
+    except Exception:
+        pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS lists (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -230,6 +235,16 @@ def delete_list(list_id):
         conn.close()
 
 
+def _extract_ma_id(album_url):
+    """Extract the numeric ID from a Metal Archives album URL.
+    e.g. .../albums/Acid_Row/Magic/1441159  ->  '1441159'
+    """
+    if not album_url:
+        return None
+    last = album_url.rstrip("/").split("/")[-1]
+    return last if last.isdigit() else None
+
+
 def insert_releases(releases):
     """
     Insert a list of release dicts (from fetch_releases.py).
@@ -239,16 +254,18 @@ def insert_releases(releases):
     inserted = 0
     try:
         for r in releases:
+            ma_id = _extract_ma_id(r.get("album_url", ""))
             cursor = conn.execute(
                 """INSERT OR IGNORE INTO releases
-                   (artist, album, type, genre, release_date)
-                   VALUES (?, ?, ?, ?, ?)""",
+                   (artist, album, type, genre, release_date, ma_album_id)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
                 (
                     r["artist"].strip(),
                     r["album"].strip(),
                     r.get("type", "").strip(),
                     r.get("genre", "").strip(),
                     normalize_date(r.get("release_date", "")),
+                    ma_id,
                 ),
             )
             if cursor.rowcount == 1:

@@ -222,6 +222,9 @@ def get_releases():
                 "success",
             )
         except Exception as e:
+            import traceback
+            print(f"[get_releases] ERROR: {e}", flush=True)
+            traceback.print_exc()
             flash(f"Fetch failed: {e}", "error")
 
         return redirect(url_for("releases"))
@@ -238,8 +241,12 @@ def release_meta(release_id):
             print(f"[meta] id={release_id} not found in DB", flush=True)
             return jsonify({"error": "Release not found"}), 404
 
-        print(f"[meta] found: {release['artist']} — {release['album']}", flush=True)
-        meta = metadata.get_release_meta(release["artist"], release["album"])
+        print(f"[meta] found: {release['artist']} — {release['album']} (ma_id={release['ma_album_id']})", flush=True)
+        meta = metadata.get_release_meta(
+            release["artist"],
+            release["album"],
+            ma_album_id=release["ma_album_id"],
+        )
         print(f"[meta] art={'found' if meta['art_url'] else 'none'} | "
               f"bio={'found' if meta['bio'] else 'none'} | "
               f"cached={meta['cached']}", flush=True)
