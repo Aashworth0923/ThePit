@@ -6,6 +6,93 @@
   <title>{% block title %}The Pit{% endblock %}</title>
   <link rel="icon" href="/favicon.ico" type="image/jpeg">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script>
+  // Initialise ThePitLog BEFORE any page scripts so console interception
+  // is active when index.html (or any other page script) first runs.
+  var ThePitLog = (function() {
+    var _entries  = [];
+    var _pollTimer = null;
+    var _serverSeq = 0;
+    var _isOpen   = false;
+
+    function _ts() { return new Date().toISOString().slice(11, 23); }
+    function _esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function _addEntry(src, level, msg) {
+      _entries.push({ time: _ts(), src: src, level: level, msg: msg });
+      if (_entries.length > 400) _entries.shift();
+      if (_isOpen) _render();
+    }
+    function _render() {
+      var el = document.getElementById('debug-entries');
+      if (!el) return;
+      el.innerHTML = _entries.map(function(e) {
+        return '<div class="de de-' + e.level + '">'
+          + '<span class="de-time">' + _esc(e.time) + '</span>'
+          + '<span class="de-src de-src-' + e.src + '">[' + e.src + ']</span>'
+          + '<span class="de-msg">' + _esc(e.msg) + '</span>'
+          + '</div>';
+      }).join('');
+      el.scrollTop = el.scrollHeight;
+      var cnt = document.getElementById('debug-entry-count');
+      if (cnt) cnt.textContent = _entries.length + ' entries';
+    }
+    function _fetchServerLogs() {
+      fetch('/api/logs?since=' + _serverSeq)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.entries && data.entries.length) {
+            data.entries.forEach(function(e) { _addEntry('server', e.level, e.msg); });
+            _serverSeq = data.seq;
+          }
+        }).catch(function() {});
+    }
+
+    // Override console methods immediately so all subsequent logs are captured
+    var _orig = {};
+    ['log','warn','error','info'].forEach(function(lvl) {
+      _orig[lvl] = console[lvl].bind(console);
+      console[lvl] = function() {
+        _orig[lvl].apply(console, arguments);
+        var msg = Array.from(arguments).map(function(a) {
+          if (a === null) return 'null';
+          if (a === undefined) return 'undefined';
+          if (typeof a === 'object') { try { return JSON.stringify(a); } catch(e) { return String(a); } }
+          return String(a);
+        }).join(' ');
+        _addEntry('client', lvl, msg);
+      };
+    });
+
+    return {
+      open:   function() {
+        _isOpen = true;
+        var p = document.getElementById('debug-panel');
+        if (p) p.classList.add('open');
+        _render();
+        _fetchServerLogs();
+        _pollTimer = setInterval(_fetchServerLogs, 1500);
+      },
+      close:  function() {
+        _isOpen = false;
+        var p = document.getElementById('debug-panel');
+        if (p) p.classList.remove('open');
+        if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+      },
+      toggle: function() { _isOpen ? this.close() : this.open(); },
+      clear:  function() { _entries = []; _serverSeq = 0; _render(); }
+    };
+  })();
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === '`' && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      ThePitLog.toggle();
+    }
+  });
+  </script>
 </head>
 <body>
 
@@ -43,110 +130,6 @@
     <div id="debug-entries"></div>
   </div>
 
-  <script>
-  // ── ThePitLog: in-app debug panel ─────────────────────────────
-  // Press backtick ` to open/close. Shows all console.log/warn/error
-  // output AND server-side Python logs (polled from /api/logs).
-  var ThePitLog = (function() {
-    var _entries  = [];          // { time, src, level, msg }
-    var _pollTimer = null;
-    var _serverSeq = 0;          // last server log sequence seen
-    var _isOpen   = false;
-
-    function _ts() {
-      return new Date().toISOString().slice(11, 23);
-    }
-
-    function _esc(s) {
-      return String(s)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    function _addEntry(src, level, msg) {
-      _entries.push({ time: _ts(), src: src, level: level, msg: msg });
-      if (_entries.length > 400) _entries.shift();
-      if (_isOpen) _render();
-    }
-
-    function _render() {
-      var el = document.getElementById('debug-entries');
-      if (!el) return;
-      var html = _entries.map(function(e) {
-        return '<div class="de de-' + e.level + '">'
-          + '<span class="de-time">' + _esc(e.time) + '</span>'
-          + '<span class="de-src de-src-' + e.src + '">[' + e.src + ']</span>'
-          + '<span class="de-msg">' + _esc(e.msg) + '</span>'
-          + '</div>';
-      }).join('');
-      el.innerHTML = html;
-      el.scrollTop = el.scrollHeight;
-      var cnt = document.getElementById('debug-entry-count');
-      if (cnt) cnt.textContent = _entries.length + ' entries';
-    }
-
-    function _fetchServerLogs() {
-      fetch('/api/logs?since=' + _serverSeq)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data.entries && data.entries.length) {
-            data.entries.forEach(function(e) {
-              _addEntry('server', e.level, e.msg);
-            });
-            _serverSeq = data.seq;
-          }
-        })
-        .catch(function() {});
-    }
-
-    // Override console methods to mirror into the panel
-    var _orig = {};
-    ['log','warn','error','info'].forEach(function(lvl) {
-      _orig[lvl] = console[lvl].bind(console);
-      console[lvl] = function() {
-        _orig[lvl].apply(console, arguments);
-        var msg = Array.from(arguments).map(function(a) {
-          if (a === null) return 'null';
-          if (a === undefined) return 'undefined';
-          if (typeof a === 'object') {
-            try { return JSON.stringify(a); } catch(e) { return String(a); }
-          }
-          return String(a);
-        }).join(' ');
-        _addEntry('client', lvl, msg);
-      };
-    });
-
-    return {
-      open: function() {
-        _isOpen = true;
-        document.getElementById('debug-panel').classList.add('open');
-        _render();
-        _fetchServerLogs();
-        _pollTimer = setInterval(_fetchServerLogs, 1500);
-      },
-      close: function() {
-        _isOpen = false;
-        document.getElementById('debug-panel').classList.remove('open');
-        if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-      },
-      toggle: function() { _isOpen ? this.close() : this.open(); },
-      clear: function() {
-        _entries = [];
-        _serverSeq = 0;
-        _render();
-      }
-    };
-  })();
-
-  // Backtick ` toggles the panel
-  document.addEventListener('keydown', function(e) {
-    if (e.key === '`' && !e.ctrlKey && !e.altKey) {
-      e.preventDefault();
-      ThePitLog.toggle();
-    }
-  });
-  </script>
 
 </body>
 </html>
