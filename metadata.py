@@ -134,6 +134,40 @@ def _get_bio(artist):
     return None
 
 
+def _get_lastfm_album_art(artist, album):
+    """Get album art from Last.fm album.getInfo (max 300px but good fallback coverage)."""
+    if not LASTFM_API_KEY:
+        return None
+    print(f"[lastfm-art] searching: {artist!r} / {album!r}", flush=True)
+    try:
+        resp = requests.get(
+            LASTFM_URL,
+            params={
+                "method": "album.getinfo",
+                "artist": artist,
+                "album":  album,
+                "api_key": LASTFM_API_KEY,
+                "format": "json",
+            },
+            timeout=TIMEOUT,
+        )
+        print(f"[lastfm-art] status: {resp.status_code}", flush=True)
+        if resp.status_code == 200:
+            images = resp.json().get("album", {}).get("image", [])
+            # Last.fm returns sizes: small, medium, large, extralarge, mega
+            # Prefer extralarge/mega, skip the blank placeholder hash
+            BLANK = "2a96cbd8b46e442fc41c2b86b821562f.png"
+            for size in ("mega", "extralarge", "large"):
+                for img in images:
+                    url = img.get("#text", "")
+                    if img.get("size") == size and url and BLANK not in url:
+                        print(f"[lastfm-art] found ({size}): {url}", flush=True)
+                        return url
+    except Exception as e:
+        print(f"[lastfm-art] error: {e}", flush=True)
+    return None
+
+
 def _get_ma_art_url(ma_album_id):
     """
     Try to fetch album art directly from the Metal Archives CDN.
@@ -187,7 +221,11 @@ def get_release_meta(artist, album, ma_album_id=None):
     if release_mbid or rg_mbid:
         result["art_url"] = _get_art_url(release_mbid, rg_mbid)
 
-    # 2. Metal Archives CDN fallback
+    # 2. Last.fm album art (already have key, good underground coverage)
+    if not result["art_url"]:
+        result["art_url"] = _get_lastfm_album_art(artist, album)
+
+    # 3. Metal Archives CDN (if ma_album_id stored from scraper)
     if not result["art_url"] and ma_album_id:
         result["art_url"] = _get_ma_art_url(ma_album_id)
         if result["art_url"]:
