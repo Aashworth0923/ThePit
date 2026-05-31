@@ -61,6 +61,11 @@
   </div>
 </div>
 
+{# ── Art lightbox ── #}
+<div id="art-lightbox" onclick="closeLightbox()">
+  <img id="art-lightbox-img" src="" alt="Album art">
+</div>
+
 {# ── Drawer (reused from releases page) ── #}
 <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
 <aside class="drawer" id="drawer">
@@ -294,8 +299,37 @@
   }
 
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { closeDrawer(); if (openReviewId) closeReview(openReviewId); }
+    if (e.key === 'Escape') {
+      closeLightbox();
+      closeDrawer();
+      if (openReviewId) closeReview(openReviewId);
+    }
   });
+
+  // ── Art lightbox ──────────────────────────────────────────────
+  function openLightbox(src) {
+    var img = document.getElementById('art-lightbox-img');
+    var lb  = document.getElementById('art-lightbox');
+    if (!img || !lb) return;
+    img.src = src;
+    lb.classList.add('open');
+  }
+
+  function closeLightbox() {
+    var lb = document.getElementById('art-lightbox');
+    if (lb) lb.classList.remove('open');
+  }
+
+  // Capture phase: intercepts the click BEFORE .ri-main's onclick fires,
+  // so clicking a thumbnail opens the lightbox without also toggling the review panel.
+  document.addEventListener('click', function(e) {
+    var thumb = e.target.closest('.ri-thumb');
+    if (!thumb) return;
+    var img = thumb.querySelector('img');
+    if (!img || !img.src || img.src === window.location.href) return;
+    e.stopPropagation();
+    openLightbox(img.src);
+  }, true); // true = capture phase
 
   // ── Compact / Full view toggle ────────────────────────────────
   var isFullView  = localStorage.getItem('listView_' + LIST_ID) === 'full';

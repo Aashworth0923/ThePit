@@ -468,6 +468,27 @@ main {
 .ri-star:hover  { color: #888; }
 .ri-star-on     { color: #f59e0b !important; }
 
+/* ── Art lightbox (click thumbnail in full view to expand) ── */
+#art-lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.93);
+  z-index: 9000;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+#art-lightbox.open { display: flex; }
+#art-lightbox img {
+  max-width:  92vw;
+  max-height: 92vh;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 0 80px rgba(0, 0, 0, 0.9);
+  pointer-events: none; /* click goes to the overlay, not the img */
+}
+
 /* ── Thumbnail (full view only) ── */
 .ri-thumb {
   display: none;

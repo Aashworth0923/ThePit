@@ -82,7 +82,30 @@
         if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
       },
       toggle: function() { _isOpen ? this.close() : this.open(); },
-      clear:  function() { _entries = []; _serverSeq = 0; _render(); }
+      clear:  function() { _entries = []; _serverSeq = 0; _render(); },
+      copyAll: function() {
+        var text = _entries.map(function(e) {
+          return '[' + e.time + '] [' + e.src + '] ' + e.msg;
+        }).join('\n');
+        var btn = document.getElementById('debug-copy-btn');
+        function flash(msg) {
+          if (!btn) return;
+          var orig = btn.textContent;
+          btn.textContent = msg;
+          setTimeout(function() { btn.textContent = orig; }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() { flash('Copied!'); })
+            .catch(function() { _fallbackCopy(text); flash('Copied!'); });
+        } else { _fallbackCopy(text); flash('Copied!'); }
+        function _fallbackCopy(t) {
+          var ta = document.createElement('textarea');
+          ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          try { document.execCommand('copy'); } catch(e) {}
+          document.body.removeChild(ta);
+        }
+      }
     };
   })();
 
@@ -123,6 +146,7 @@
       <span id="debug-panel-title">Debug Log &nbsp;<kbd>`</kbd> to close</span>
       <div style="display:flex;gap:8px;align-items:center;">
         <span id="debug-entry-count" style="color:#555;font-size:11px;"></span>
+        <button class="debug-btn" id="debug-copy-btn" onclick="ThePitLog.copyAll()">Copy</button>
         <button class="debug-btn" onclick="ThePitLog.clear()">Clear</button>
         <button class="debug-btn" onclick="ThePitLog.close()">✕</button>
       </div>
