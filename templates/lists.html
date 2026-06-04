@@ -99,8 +99,7 @@
 {% endif %}
 
 <!-- ── Folder side panel ─────────────────────────────────────────────── -->
-<div class="drawer-overlay" id="folder-overlay" onclick="toggleFolderPanel()"></div>
-
+<!-- No overlay — the panel stays open so the user can drag list rows onto folder cards -->
 <aside id="folder-panel" class="folder-panel">
   <div class="drawer-header">
     <span style="font-size:13px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--muted);">
@@ -162,7 +161,6 @@
 
   function _applyPanelState() {
     document.getElementById('folder-panel').classList.toggle('open', panelOpen);
-    document.getElementById('folder-overlay').classList.toggle('open', panelOpen);
     document.body.classList.toggle('folders-panel-open', panelOpen);
     var btn = document.getElementById('folder-panel-toggle');
     if (btn) btn.classList.toggle('active', panelOpen);
@@ -226,14 +224,25 @@
   rows.forEach(function(row) {
     row.addEventListener('dragstart', function(e) {
       e.dataTransfer.setData('list-id', this.dataset.listId);
+      e.dataTransfer.setData('text/plain', this.dataset.listId); // broader compat
       e.dataTransfer.effectAllowed = 'move';
-      this.classList.add('dragging');
-      // Auto-open panel if not already open
+      var self = this;
+      // Small delay so the row isn't invisible at drag start
+      setTimeout(function() { self.classList.add('dragging'); }, 0);
+      // Auto-open panel so the user can see folder cards to drop onto
       if (!panelOpen) toggleFolderPanel();
     });
     row.addEventListener('dragend', function() {
       this.classList.remove('dragging');
     });
+    // Make any cell click that starts a drag show a hint cursor
+    row.style.cursor = 'grab';
+  });
+
+  // Make folder panel itself a proper drop zone so even dropping in
+  // the panel gap area is handled gracefully
+  document.getElementById('folder-panel').addEventListener('dragover', function(e) {
+    e.preventDefault();
   });
 
   function handleDrop(event, card) {

@@ -727,10 +727,12 @@ tr.dragging          { opacity: 0.4; }
 }
 .folder-panel.open { transform: translateX(0); }
 
-/* Nudge main content when panel is open so list rows stay visible */
+/* Nudge main content when panel is open so list rows stay visible and
+   remain fully interactive for drag-and-drop. No overlay is used. */
 body.folders-panel-open main {
-  margin-right: 300px;
+  margin-right: 308px;          /* panel width + border */
   transition: margin-right 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;         /* explicit: main stays interactive */
 }
 
 /* ── Folder grid (used in panel + folders page) ── */
