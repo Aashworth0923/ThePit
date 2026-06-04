@@ -37,7 +37,11 @@ MB_HEADERS = {
     "User-Agent": "ThePit/1.0 (personal-metal-tracker)",
     "Accept": "application/json",
 }
-TIMEOUT = 10
+MB_TIMEOUT       = 5   # MusicBrainz — fast when up, expensive to wait when timing out
+LASTFM_TIMEOUT   = 8   # Last.fm — usually quick
+BANDCAMP_TIMEOUT = 6   # Bandcamp — best-effort fallback
+MA_TIMEOUT       = 4   # Metal Archives CDN HEAD check
+TIMEOUT          = 8   # default for other calls
 
 # In-process cache: (artist_lower, album_lower) -> result dict
 # Persists for the lifetime of the Flask process (cleared on restart)
@@ -56,7 +60,7 @@ def _search_mb(artist, album):
                 "limit": 3,
             },
             headers=MB_HEADERS,
-            timeout=TIMEOUT,
+            timeout=MB_TIMEOUT,
         )
         print(f"[mb] search status: {resp.status_code}", flush=True)
         if resp.status_code == 200:
@@ -78,7 +82,7 @@ def _get_art_url(release_mbid, rg_mbid):
     def _try(endpoint):
         print(f"[caa] trying: {endpoint}", flush=True)
         try:
-            r = requests.get(endpoint, timeout=TIMEOUT)
+            r = requests.get(endpoint, timeout=LASTFM_TIMEOUT)
             print(f"[caa] status: {r.status_code}", flush=True)
             if r.status_code == 200:
                 images = r.json().get("images", [])
@@ -116,7 +120,7 @@ def _get_bio(artist):
                 "api_key": LASTFM_API_KEY,
                 "format": "json",
             },
-            timeout=TIMEOUT,
+            timeout=LASTFM_TIMEOUT,
         )
         print(f"[lastfm] status: {resp.status_code}", flush=True)
         if resp.status_code == 200:
@@ -149,7 +153,7 @@ def _get_lastfm_album_art(artist, album):
                 "api_key": LASTFM_API_KEY,
                 "format": "json",
             },
-            timeout=TIMEOUT,
+            timeout=LASTFM_TIMEOUT,
         )
         print(f"[lastfm-art] status: {resp.status_code}", flush=True)
         if resp.status_code == 200:
@@ -198,7 +202,7 @@ def _get_bandcamp_art(artist, album):
 
     try:
         from bs4 import BeautifulSoup
-        resp = requests.get(url, timeout=8, headers={
+        resp = requests.get(url, timeout=BANDCAMP_TIMEOUT, headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -256,7 +260,7 @@ def _get_ma_art_url(ma_album_id):
     url  = f"https://www.metal-archives.com/images/{path}/{id_str}.jpg"
     print(f"[ma-art] trying: {url}", flush=True)
     try:
-        r = requests.head(url, timeout=TIMEOUT, headers={
+        r = requests.head(url, timeout=MA_TIMEOUT, headers={
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
