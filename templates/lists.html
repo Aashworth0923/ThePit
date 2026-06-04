@@ -314,29 +314,33 @@
 
   // ── Async folder art loader ─────────────────────────────────────
   function _loadFolderArt(folderId) {
+    console.log('[folder-art] fetching hint for folder', folderId);
     fetch('/folders/' + folderId + '/art-hint')
       .then(function(r) { return r.json(); })
       .then(function(hint) {
+        console.log('[folder-art] hint ->', JSON.stringify(hint));
         if (!hint.release_id) return null;
         return fetch('/release/' + hint.release_id + '/meta').then(function(r) { return r.json(); });
       })
       .then(function(meta) {
-        if (!meta || !meta.art_url) return;
+        if (!meta) return;
+        console.log('[folder-art] art_url=', meta.art_url ? meta.art_url.slice(0,60) : 'none');
+        if (!meta.art_url) return;
         var iconEl = document.getElementById('ficon-' + folderId);
-        if (!iconEl) return;
+        if (!iconEl) { console.warn('[folder-art] ficon-' + folderId + ' not in DOM'); return; }
         var img = document.createElement('img');
         img.className = 'folder-card-img';
         img.alt = '';
         img.onload  = function() { iconEl.classList.add('art-loaded'); };
-        img.onerror = function() { img.remove(); };
+        img.onerror = function() { console.warn('[folder-art] img failed, folder', folderId); img.remove(); };
         img.src = meta.art_url;
         iconEl.insertBefore(img, iconEl.firstChild);
       })
-      .catch(function() {});
+      .catch(function(e) { console.error('[folder-art] error folder', folderId, ':', e.message || e); });
   }
 
-  document.querySelectorAll('.folder-card[data-folder-id]').forEach(function(card) {
-    _loadFolderArt(card.dataset.folderId);
-  });
+  var _folderCards = document.querySelectorAll('.folder-card[data-folder-id]');
+  console.log('[folder-art] panel cards found:', _folderCards.length);
+  _folderCards.forEach(function(card) { _loadFolderArt(card.dataset.folderId); });
 </script>
 {% endblock %}

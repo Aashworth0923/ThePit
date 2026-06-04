@@ -116,32 +116,36 @@
   }
 
   // ── Async folder art loader ─────────────────────────────────────────────────
-  // For each folder card, fetch a random release ID, then fetch its art/bio,
-  // and inject the image into the icon. Works regardless of whether art_url
-  // is pre-cached in the DB — the meta endpoint handles the full fallback chain.
   function _loadFolderArt(folderId) {
+    console.log('[folder-art] fetching hint for folder', folderId);
     fetch('/folders/' + folderId + '/art-hint')
       .then(function(r) { return r.json(); })
       .then(function(hint) {
-        if (!hint.release_id) return;
+        console.log('[folder-art] hint for', folderId, '->', JSON.stringify(hint));
+        if (!hint.release_id) { console.log('[folder-art] no releases in folder', folderId); return null; }
         return fetch('/release/' + hint.release_id + '/meta').then(function(r) { return r.json(); });
       })
       .then(function(meta) {
-        if (!meta || !meta.art_url) return;
+        if (!meta) return;
+        console.log('[folder-art] meta art_url=', meta.art_url ? meta.art_url.slice(0,60) : 'none');
+        if (!meta.art_url) return;
         var iconEl = document.getElementById('ficon-' + folderId);
-        if (!iconEl) return;
+        if (!iconEl) { console.warn('[folder-art] icon element ficon-' + folderId + ' not found'); return; }
         var img = document.createElement('img');
         img.className = 'folder-card-img';
         img.alt = '';
-        img.onload  = function() { iconEl.classList.add('art-loaded'); };
-        img.onerror = function() { img.remove(); };
+        img.onload  = function() { iconEl.classList.add('art-loaded'); console.log('[folder-art] art loaded for folder', folderId); };
+        img.onerror = function() { console.warn('[folder-art] art failed for folder', folderId); img.remove(); };
         img.src = meta.art_url;
         iconEl.insertBefore(img, iconEl.firstChild);
       })
-      .catch(function() {});
+      .catch(function(e) { console.error('[folder-art] error for folder', folderId, ':', e.message || e); });
   }
 
-  document.querySelectorAll('.folder-card[data-folder-id]').forEach(function(card) {
+  var _folderCards = document.querySelectorAll('.folder-card[data-folder-id]');
+  console.log('[folder-art] found', _folderCards.length, 'folder cards on page');
+  _folderCards.forEach(function(card) {
+    console.log('[folder-art] card folder-id=', card.dataset.folderId);
     _loadFolderArt(card.dataset.folderId);
   });
 </script>
