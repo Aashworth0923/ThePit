@@ -650,8 +650,14 @@
         document.getElementById('drawer-art-loading').style.display = 'none';
         if (data.art_url) {
           var img = document.getElementById('drawer-art');
-          img.onload  = function() { img.style.display = 'block'; };
-          img.onerror = showArtPlaceholder;
+          img.onload  = function() {
+            img.style.display = 'block';
+            console.log('[art-ok] drawer id=' + id + ' ' + img.naturalWidth + 'x' + img.naturalHeight + ' url=' + img.src.slice(0,80));
+          };
+          img.onerror = function() {
+            console.warn('[art-fail] drawer id=' + id + ' browser rejected: ' + img.src.slice(0,100));
+            showArtPlaceholder();
+          };
           img.src     = data.art_url;
         } else { showArtPlaceholder(); }
         if (data.type || data.genre || data.release_date) {

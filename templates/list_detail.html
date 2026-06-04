@@ -394,7 +394,21 @@
         var thumbEl = document.getElementById('thumb-' + id);
         if (thumbEl) {
           if (data.art_url) {
-            thumbEl.innerHTML = '<img src="' + data.art_url + '" alt="" onerror="this.parentElement.innerHTML=\'<div class=ri-thumb-placeholder>No Art</div>\'">';
+            var img = document.createElement('img');
+            img.alt = '';
+            img.onload = function() {
+              // Log dimensions — a 1×1 or tiny image is a blank placeholder
+              console.log('[art-ok] id=' + id
+                + ' ' + img.naturalWidth + 'x' + img.naturalHeight
+                + ' url=' + img.src.slice(0, 80));
+            };
+            img.onerror = function() {
+              console.warn('[art-fail] id=' + id + ' browser rejected: ' + img.src.slice(0, 100));
+              thumbEl.innerHTML = '<div class="ri-thumb-placeholder">No Art</div>';
+            };
+            img.src = data.art_url;
+            thumbEl.innerHTML = '';
+            thumbEl.appendChild(img);
           } else {
             thumbEl.innerHTML = '<div class="ri-thumb-placeholder">No Art</div>';
           }
