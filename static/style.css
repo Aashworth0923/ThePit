@@ -859,25 +859,29 @@ body.folders-panel-open main {
 #releases-table tbody tr { cursor: pointer; }
 #releases-table tbody tr:hover td { background: var(--surface2); }
 
-/* ── Folder card collage (2×2 grid of album thumbnails) ── */
-.folder-card-collage {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  aspect-ratio: 1;
-  overflow: hidden;
-}
-.folder-card-collage img {
+/* ── Folder card: single album art fills the icon area ── */
+/* The icon div is position:relative so the art and initial can overlay */
+.folder-card-icon { position: relative; overflow: hidden; }
+
+.folder-card-img {
+  position: absolute;
+  inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
   display: block;
+  z-index: 0;
 }
-.folder-card-collage .folder-card-icon-fill {
-  width: 100%; height: 100%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 28px; font-weight: 700; color: rgba(255,255,255,0.4);
-  background: rgba(0,0,0,0.2);
+/* Initial letter — sits above the art, hidden via JS once art loads */
+.folder-card-initial {
+  position: relative;
+  z-index: 1;
+  font-size: inherit;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  pointer-events: none;
 }
+/* When art loaded successfully, the initial is toggled hidden by JS */
+.folder-card-icon.art-loaded .folder-card-initial { display: none; }
 
 /* ── Folder grid (used in panel + folders page) ── */
 .folder-grid {
@@ -897,13 +901,16 @@ body.folders-panel-open main {
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  border: 2px solid transparent;
+  /* App-icon border: subtle white ring + soft shadow for depth */
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   transition: transform 0.15s, box-shadow 0.15s, border-color 0.12s;
   user-select: none;
 }
 .folder-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 .folder-card.drag-over {
   border-color: #86efac;

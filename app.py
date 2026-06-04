@@ -194,11 +194,12 @@ def releases():
 
 
 def _enrich_folders(folders):
-    """Attach proxied collage art URLs to each folder dict."""
+    """Attach a single random proxied art URL to each folder dict."""
     result = []
     for f in folders:
         d = dict(f)
-        d["art_urls"] = [_proxy_url(u) for u in db.get_folder_art_urls(f["id"])]
+        urls = db.get_folder_art_urls(f["id"], limit=1)
+        d["art_url"] = _proxy_url(urls[0]) if urls else None
         result.append(d)
     return result
 

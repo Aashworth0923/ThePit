@@ -30,14 +30,14 @@
   {% for f in folders %}
   <div class="folder-card" data-folder-id="{{ f.id }}" style="background:{{ f.color }}"
        onclick="window.location='{{ url_for('lists', folder=f.id) }}'">
-    {% if f.art_urls %}
-    <div class="folder-card-collage">
-      {% for url in f.art_urls %}<img src="{{ url }}" alt="" onerror="this.style.display='none'">{% endfor %}
-      {% for _ in range(4 - f.art_urls|length) %}<div class="folder-card-icon-fill">{{ f.name[0]|upper }}</div>{% endfor %}
+    <div class="folder-card-icon">
+      {% if f.art_url %}
+      <img class="folder-card-img" src="{{ f.art_url }}" alt=""
+           onload="this.parentElement.classList.add('art-loaded')"
+           onerror="this.style.display='none'">
+      {% endif %}
+      <span class="folder-card-initial">{{ f.name[0]|upper }}</span>
     </div>
-    {% else %}
-    <div class="folder-card-icon">{{ f.name[0]|upper }}</div>
-    {% endif %}
     <div class="folder-card-label">
       <div class="folder-card-name">{{ f.name }}</div>
       <div class="folder-card-count">{{ f.list_count }} list{{ 's' if f.list_count != 1 }}</div>
