@@ -401,6 +401,12 @@ main {
   white-space: nowrap;
 }
 .lp-create-btn:hover { background: var(--accent-h); }
+.lp-cancel-btn {
+  background: none; border: none; color: #666; cursor: pointer;
+  padding: 4px 7px; border-radius: 4px; font-size: 14px; line-height: 1;
+  transition: color 0.12s;
+}
+.lp-cancel-btn:hover { color: #aaa; }
 
 /* Divider */
 .lp-divider { height: 1px; background: var(--border); margin: 0; }

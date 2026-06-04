@@ -39,15 +39,16 @@
         </div>
 
         <!-- Pinned: New List -->
-        <div class="lp-item lp-new-trigger" id="lp-new-trigger" onclick="lpToggleNewForm()">
+        <div class="lp-item lp-new-trigger" id="lp-new-trigger" onclick="lpShowNewForm()">
           <span class="lp-plus">＋</span>
           <span>New List</span>
         </div>
         <div class="lp-new-form" id="lp-new-form" style="display:none;">
-          <input type="text" id="lp-new-name" placeholder="List name…" maxlength="80"
+          <input type="text" id="lp-new-name" placeholder="Type name, then press Enter…" maxlength="80"
                  autocomplete="off"
-                 onkeydown="if(event.key==='Enter') lpCreateList(); if(event.key==='Escape') lpToggleNewForm()">
-          <button class="lp-create-btn" onclick="lpCreateList()">Create</button>
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();lpCreateList();} if(event.key==='Escape') lpHideNewForm()">
+          <button class="lp-create-btn" onclick="lpCreateList()" title="Create list">✓</button>
+          <button class="lp-cancel-btn" onclick="lpHideNewForm()" title="Cancel">✕</button>
         </div>
 
         <div class="lp-divider"></div>
@@ -489,107 +490,126 @@
     }
   }
 
-  function lpToggleNewForm() {
+  // ── New list form helpers ─────────────────────────────────────
+  function lpShowNewForm() {
     var form = document.getElementById('lp-new-form');
-    if (!form) return;
-    var show = form.style.display === 'none';
-    form.style.display = show ? 'flex' : 'none';
-    if (show) setTimeout(function() { document.getElementById('lp-new-name').focus(); }, 50);
+    if (form) {
+      form.style.display = 'flex';
+      setTimeout(function() { document.getElementById('lp-new-name').focus(); }, 30);
+    }
+  }
+  function lpHideNewForm() {
+    var form = document.getElementById('lp-new-form');
+    if (form) form.style.display = 'none';
+    var inp = document.getElementById('lp-new-name');
+    if (inp) inp.value = '';
+    var err = document.getElementById('lp-create-err');
+    if (err) err.textContent = '';
   }
 
-  function lpCreateList() {
-    var input = document.getElementById('lp-new-name');
-    var name  = input.value.trim();
-    if (!name) return;
+  function lpInjectList(id, name) {
+    var listEl = document.getElementById('lp-list');
+    var empty  = document.getElementById('lp-empty');
+    if (empty) empty.style.display = 'none';
+    var label = document.createElement('label');
+    label.className = 'lp-item';
+    label.dataset.lname = name.toLowerCase();
+    label.innerHTML = '<input type="checkbox" class="lp-check" value="' + id + '" checked>'
+                    + '<span class="lp-name">' + name + '</span>';
+    listEl.prepend(label);
+  }
 
+  function _lpFetchCreate(name, onSuccess) {
     fetch('/lists/new', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ name: name }),
     })
     .then(function(r) {
-      // Guard: parse JSON only if the response actually is JSON
       var ct = r.headers.get('Content-Type') || '';
-      if (!ct.includes('application/json')) {
-        throw new Error('Server returned non-JSON (status ' + r.status + '). Check the debug log.');
-      }
+      if (!ct.includes('application/json'))
+        throw new Error('Server returned non-JSON (HTTP ' + r.status + ')');
       return r.json();
     })
     .then(function(data) {
       if (!data.ok) {
         console.error('[lists] create failed:', data.error);
-        // Show inline error rather than alert — keep picker open
         var errSpan = document.getElementById('lp-create-err');
         if (!errSpan) {
           errSpan = document.createElement('span');
           errSpan.id = 'lp-create-err';
-          errSpan.style.cssText = 'color:#f87171;font-size:12px;margin-left:6px;';
+          errSpan.style.cssText = 'color:#f87171;font-size:12px;margin-left:4px;';
           document.getElementById('lp-new-form').appendChild(errSpan);
         }
         errSpan.textContent = data.error || 'Could not create list';
         return;
       }
-      // Success — inject new list into picker, pre-checked, keep picker open
-      input.value = '';
-      document.getElementById('lp-new-form').style.display = 'none';
-      var errSpan = document.getElementById('lp-create-err');
-      if (errSpan) errSpan.textContent = '';
-
-      var listEl = document.getElementById('lp-list');
-      var empty  = document.getElementById('lp-empty');
-      if (empty) empty.style.display = 'none';
-      var label = document.createElement('label');
-      label.className = 'lp-item';
-      label.dataset.lname = data.name.toLowerCase();
-      label.innerHTML = '<input type="checkbox" class="lp-check" value="' + data.id + '" checked>'
-                      + '<span class="lp-name">' + data.name + '</span>';
-      listEl.prepend(label);
-      console.log('[lists] created and pre-checked in picker:', data.name, 'id:', data.id);
-      // Picker stays open so user can immediately click Add
+      console.log('[lists] created:', data.name, 'id:', data.id);
+      lpHideNewForm();
+      lpInjectList(data.id, data.name);
+      if (typeof onSuccess === 'function') onSuccess(data.id, data.name);
     })
-    .catch(function(e) {
-      // e.message gives the real error string instead of the opaque {}
-      console.error('[lists] create error:', e.message || e);
-    });
+    .catch(function(e) { console.error('[lists] create error:', e.message || e); });
   }
 
-  function lpAddToSelected() {
-    var checked = Array.from(document.querySelectorAll('.lp-check:checked'));
-    if (checked.length === 0 || selectedIds.size === 0) return;
+  // Called by ✓ button or Enter key in the new-list form
+  // Creates the list and pre-checks it; picker stays open for user to click Add
+  function lpCreateList() {
+    var name = (document.getElementById('lp-new-name').value || '').trim();
+    if (!name) { document.getElementById('lp-new-name').focus(); return; }
+    _lpFetchCreate(name, null); // just inject, no auto-add
+  }
 
+  // ── Add to selected lists ─────────────────────────────────────
+  // Smart: if the new-list form is visible with a name, create that list
+  // first, then add all selected releases to it + any other checked lists.
+  function lpAddToSelected() {
+    var form      = document.getElementById('lp-new-form');
+    var nameInput = document.getElementById('lp-new-name');
+    var pending   = (form && form.style.display !== 'none' && nameInput)
+                    ? (nameInput.value || '').trim() : '';
+
+    if (pending) {
+      _lpFetchCreate(pending, function() { _doAdd(); });
+    } else {
+      _doAdd();
+    }
+  }
+
+  function _doAdd() {
+    var checked = Array.from(document.querySelectorAll('.lp-check:checked'));
+    if (checked.length === 0 || selectedIds.size === 0) {
+      console.log('[lists] nothing to add — no lists checked or no rows selected');
+      return;
+    }
     var releaseIds = Array.from(selectedIds);
     var listNames  = checked.map(function(cb) {
-      var label = cb.closest('.lp-item');
-      return label ? label.querySelector('.lp-name').textContent : cb.value;
+      var lbl = cb.closest('.lp-item');
+      return lbl ? ((lbl.querySelector('.lp-name') || {}).textContent || '') : '';
     });
     var btn = document.getElementById('lp-add-btn');
     if (btn) btn.disabled = true;
 
-    var promises = checked.map(function(cb) {
+    Promise.all(checked.map(function(cb) {
       return fetch('/lists/' + cb.value + '/add', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ release_ids: releaseIds }),
       }).then(function(r) { return r.json(); });
+    }))
+    .then(function(results) {
+      var total = results.reduce(function(s, d) { return s + (d.added || 0); }, 0);
+      var msg = document.getElementById('lp-msg');
+      msg.textContent  = total + ' release' + (total !== 1 ? 's' : '')
+                       + ' added to ' + listNames.filter(Boolean).join(', ');
+      msg.style.display = 'inline';
+      if (btn) btn.disabled = false;
+      setTimeout(function() { msg.style.display = 'none'; closeListPicker(); }, 2500);
+    })
+    .catch(function(e) {
+      console.error('[lists] add error:', e);
+      if (btn) btn.disabled = false;
     });
-
-    Promise.all(promises)
-      .then(function(results) {
-        var totalAdded = results.reduce(function(s, d) { return s + (d.added || 0); }, 0);
-        var msg = document.getElementById('lp-msg');
-        msg.textContent  = totalAdded + ' release' + (totalAdded !== 1 ? 's' : '')
-                         + ' added to ' + listNames.join(', ');
-        msg.style.display = 'inline';
-        if (btn) btn.disabled = false;
-        setTimeout(function() {
-          msg.style.display = 'none';
-          closeListPicker();
-        }, 2500);
-      })
-      .catch(function(e) {
-        console.error('[lists] add error:', e);
-        if (btn) btn.disabled = false;
-      });
   }
 
   // ── Drawer ────────────────────────────────────────────────────
