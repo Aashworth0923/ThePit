@@ -194,14 +194,8 @@ def releases():
 
 
 def _enrich_folders(folders):
-    """Attach a single random proxied art URL to each folder dict."""
-    result = []
-    for f in folders:
-        d = dict(f)
-        urls = db.get_folder_art_urls(f["id"], limit=1)
-        d["art_url"] = _proxy_url(urls[0]) if urls else None
-        result.append(d)
-    return result
+    """Convert sqlite3.Row objects to plain dicts (no art pre-fetching — done async by JS)."""
+    return [dict(f) for f in folders]
 
 
 @app.route("/lists")
@@ -226,6 +220,28 @@ def lists():
 def folders():
     all_folders = _enrich_folders(db.get_all_folders())
     return render_template("folders.html", folders=all_folders)
+
+
+@app.route("/folders/<int:folder_id>/art-hint")
+def folder_art_hint(folder_id):
+    """Return a random release ID from this folder for client-side art loading."""
+    conn = db.get_db()
+    try:
+        row = conn.execute("""
+            SELECT r.id
+            FROM   releases r
+            JOIN   list_releases lr ON r.id = lr.release_id
+            JOIN   lists l          ON l.id = lr.list_id
+            WHERE  l.folder_id = ?
+            ORDER BY RANDOM()
+            LIMIT 1
+        """, (folder_id,)).fetchone()
+        return jsonify({"release_id": row["id"] if row else None})
+    except Exception as e:
+        print(f"[folder-art] hint error: {e}", flush=True)
+        return jsonify({"release_id": None})
+    finally:
+        conn.close()
 
 
 @app.route("/folders/new", methods=["POST"])

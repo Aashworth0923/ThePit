@@ -133,12 +133,7 @@
          ondragover="event.preventDefault(); this.classList.add('drag-over')"
          ondragleave="this.classList.remove('drag-over')"
          ondrop="handleDrop(event, this)">
-      <div class="folder-card-icon">
-        {% if f.art_url %}
-        <img class="folder-card-img" src="{{ f.art_url }}" alt=""
-             onload="this.parentElement.classList.add('art-loaded')"
-             onerror="this.style.display='none'">
-        {% endif %}
+      <div class="folder-card-icon" id="ficon-{{ f.id }}">
         <span class="folder-card-initial">{{ f.name[0]|upper }}</span>
       </div>
       <div class="folder-card-label">
@@ -316,5 +311,32 @@
       if (data.ok) window.location.reload();
     });
   }
+
+  // ── Async folder art loader ─────────────────────────────────────
+  function _loadFolderArt(folderId) {
+    fetch('/folders/' + folderId + '/art-hint')
+      .then(function(r) { return r.json(); })
+      .then(function(hint) {
+        if (!hint.release_id) return null;
+        return fetch('/release/' + hint.release_id + '/meta').then(function(r) { return r.json(); });
+      })
+      .then(function(meta) {
+        if (!meta || !meta.art_url) return;
+        var iconEl = document.getElementById('ficon-' + folderId);
+        if (!iconEl) return;
+        var img = document.createElement('img');
+        img.className = 'folder-card-img';
+        img.alt = '';
+        img.onload  = function() { iconEl.classList.add('art-loaded'); };
+        img.onerror = function() { img.remove(); };
+        img.src = meta.art_url;
+        iconEl.insertBefore(img, iconEl.firstChild);
+      })
+      .catch(function() {});
+  }
+
+  document.querySelectorAll('.folder-card[data-folder-id]').forEach(function(card) {
+    _loadFolderArt(card.dataset.folderId);
+  });
 </script>
 {% endblock %}
