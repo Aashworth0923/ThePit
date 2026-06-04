@@ -507,12 +507,34 @@
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ name: name }),
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      // Guard: parse JSON only if the response actually is JSON
+      var ct = r.headers.get('Content-Type') || '';
+      if (!ct.includes('application/json')) {
+        throw new Error('Server returned non-JSON (status ' + r.status + '). Check the debug log.');
+      }
+      return r.json();
+    })
     .then(function(data) {
-      if (!data.ok) { alert(data.error || 'Could not create list'); return; }
+      if (!data.ok) {
+        console.error('[lists] create failed:', data.error);
+        // Show inline error rather than alert — keep picker open
+        var errSpan = document.getElementById('lp-create-err');
+        if (!errSpan) {
+          errSpan = document.createElement('span');
+          errSpan.id = 'lp-create-err';
+          errSpan.style.cssText = 'color:#f87171;font-size:12px;margin-left:6px;';
+          document.getElementById('lp-new-form').appendChild(errSpan);
+        }
+        errSpan.textContent = data.error || 'Could not create list';
+        return;
+      }
+      // Success — inject new list into picker, pre-checked, keep picker open
       input.value = '';
       document.getElementById('lp-new-form').style.display = 'none';
-      // Inject new item into the picker list, pre-checked
+      var errSpan = document.getElementById('lp-create-err');
+      if (errSpan) errSpan.textContent = '';
+
       var listEl = document.getElementById('lp-list');
       var empty  = document.getElementById('lp-empty');
       if (empty) empty.style.display = 'none';
@@ -522,9 +544,13 @@
       label.innerHTML = '<input type="checkbox" class="lp-check" value="' + data.id + '" checked>'
                       + '<span class="lp-name">' + data.name + '</span>';
       listEl.prepend(label);
-      console.log('[lists] created and added to picker:', data.name);
+      console.log('[lists] created and pre-checked in picker:', data.name, 'id:', data.id);
+      // Picker stays open so user can immediately click Add
     })
-    .catch(function(e) { console.error('[lists] create error:', e); });
+    .catch(function(e) {
+      // e.message gives the real error string instead of the opaque {}
+      console.error('[lists] create error:', e.message || e);
+    });
   }
 
   function lpAddToSelected() {

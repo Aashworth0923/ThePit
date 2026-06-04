@@ -255,20 +255,22 @@ def list_assign(list_id):
 
 @app.route("/lists/new", methods=["POST"])
 def lists_new():
-    # Support both JSON (from the inline picker) and form submissions
-    if request.is_json:
-        data = request.get_json(silent=True) or {}
-        name = data.get("name", "").strip()
+    # Support both JSON (from the inline picker) and form POST (lists page form).
+    # force=True parses JSON regardless of Content-Type quirks in some browsers.
+    json_data = request.get_json(force=True, silent=True)
+    if json_data is not None:
+        name = str(json_data.get("name", "")).strip()
         if not name:
             return jsonify({"error": "Name required"}), 400
         try:
             db.create_list(name, "")
-            # Return the new list's id so the picker can inject it
             conn = db.get_db()
             row  = conn.execute("SELECT id FROM lists WHERE name = ?", (name,)).fetchone()
             conn.close()
+            print(f"[lists] created via picker: {name!r} id={row['id']}", flush=True)
             return jsonify({"ok": True, "id": row["id"], "name": name})
         except Exception as e:
+            print(f"[lists] create error: {e}", flush=True)
             return jsonify({"error": str(e)}), 400
 
     name = request.form.get("name", "").strip()
