@@ -135,10 +135,10 @@
          ondrop="handleDrop(event, this)">
       <div class="folder-card-icon" id="ficon-{{ f.id }}">
         <span class="folder-card-initial">{{ f.name[0]|upper }}</span>
-      </div>
-      <div class="folder-card-label">
-        <div class="folder-card-name">{{ f.name }}</div>
-        <div class="folder-card-count" id="fc-count-{{ f.id }}">{{ f.list_count }}</div>
+        <div class="folder-card-label">
+          <div class="folder-card-name">{{ f.name }}</div>
+          <div class="folder-card-count" id="fc-count-{{ f.id }}">{{ f.list_count }}</div>
+        </div>
       </div>
     </div>
     {% endfor %}

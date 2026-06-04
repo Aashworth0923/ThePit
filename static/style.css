@@ -859,10 +859,89 @@ body.folders-panel-open main {
 #releases-table tbody tr { cursor: pointer; }
 #releases-table tbody tr:hover td { background: var(--surface2); }
 
-/* ── Folder card: single album art fills the icon area ── */
-/* The icon div is position:relative so the art and initial can overlay */
-.folder-card-icon { position: relative; overflow: hidden; }
+/* ══════════════════════════════════════════════════════════════════
+   FOLDER CARDS — Steam library grid aesthetic
+   Key traits: tiny radius (3px), strong hover scale+lift+shadow,
+   ::after top-shine on hover, gradient name overlay on image.
+   ══════════════════════════════════════════════════════════════════ */
 
+/* ── Grid containers ── */
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+.folder-grid-large {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  padding: 0;
+}
+
+/* ── Base card ── */
+.folder-card {
+  border-radius: 3px;             /* Steam: very subtle corners */
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: transform 0.13s ease-out, box-shadow 0.13s ease-out, border-color 0.13s;
+  user-select: none;
+}
+
+/* Hover: scale + lift + deeper shadow (Steam's signature feel) */
+.folder-card:hover {
+  transform: scale(1.04) translateY(-3px);
+  box-shadow: 0 16px 36px rgba(0,0,0,0.75), 0 4px 12px rgba(0,0,0,0.5);
+  border-color: rgba(255,255,255,0.18);
+  z-index: 2;
+}
+
+/* ::after top-shine that slides in on hover */
+.folder-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(170deg, rgba(255,255,255,0.09) 0%, transparent 55%);
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+  pointer-events: none;
+  z-index: 10;
+}
+.folder-card:hover::after { opacity: 1; }
+
+/* Drag-over target (keep green accent from original) */
+.folder-card.drag-over {
+  border-color: #86efac;
+  box-shadow: 0 0 0 2px rgba(134,239,172,0.35), 0 8px 24px rgba(0,0,0,0.6);
+  transform: scale(1.06);
+}
+
+/* "+ New Folder" ghost card */
+.folder-card-new {
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px dashed rgba(255,255,255,0.14) !important;
+  box-shadow: none !important;
+}
+.folder-card-new:hover { border-color: rgba(255,255,255,0.28) !important; }
+
+/* ── Icon area (square, holds art + initial + name overlay) ── */
+.folder-card-icon {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 40px;
+  font-weight: 700;
+}
+.folder-grid-large .folder-card-icon { font-size: 56px; }
+
+/* Album art image */
 .folder-card-img {
   position: absolute;
   inset: 0;
@@ -871,74 +950,43 @@ body.folders-panel-open main {
   display: block;
   z-index: 0;
 }
-/* Initial letter — sits above the art, hidden via JS once art loads */
+
+/* Initial letter fallback */
 .folder-card-initial {
   position: relative;
   z-index: 1;
-  font-size: inherit;
   font-weight: 700;
   color: rgba(255,255,255,0.9);
   pointer-events: none;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
-/* When art loaded successfully, the initial is toggled hidden by JS */
 .folder-card-icon.art-loaded .folder-card-initial { display: none; }
 
-/* ── Folder grid (used in panel + folders page) ── */
-.folder-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 10px;
-  padding: 14px;
+/* ── Name overlay — gradient fade at bottom of icon ── */
+.folder-card-label {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 22px 10px 9px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.78));
+  z-index: 5;
+  pointer-events: none;
 }
-.folder-grid-large {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 14px;
-  padding: 0;
-}
-
-/* ── Folder card (phone app icon style) ── */
-.folder-card {
-  border-radius: 12px;
+.folder-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
   overflow: hidden;
-  cursor: pointer;
-  /* App-icon border: subtle white ring + soft shadow for depth */
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  transition: transform 0.15s, box-shadow 0.15s, border-color 0.12s;
-  user-select: none;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
 }
-.folder-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
-  border-color: rgba(255, 255, 255, 0.28);
+.folder-card-count {
+  font-size: 10px;
+  color: rgba(255,255,255,0.55);
+  margin-top: 1px;
+  line-height: 1.2;
 }
-.folder-card.drag-over {
-  border-color: #86efac;
-  box-shadow: 0 0 0 3px rgba(134, 239, 172, 0.25);
-  transform: scale(1.06);
-}
-.folder-card-new {
-  background: var(--surface2) !important;
-  border: 2px dashed var(--border);
-}
-.folder-card-new:hover { border-color: #555; }
-
-.folder-card-icon {
-  width: 100%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 36px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
-  letter-spacing: -1px;
-}
-.folder-grid-large .folder-card-icon { font-size: 52px; }
-
-.folder-card-label  { padding: 7px 10px; background: rgba(0, 0, 0, 0.32); text-align: center; }
-.folder-card-name   { font-size: 12px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.folder-card-count  { font-size: 11px; color: rgba(255, 255, 255, 0.6); margin-top: 2px; }
 
 /* ── Folder breadcrumb (Lists tab when inside a folder) ── */
 .folder-breadcrumb      { display: flex; align-items: center; gap: 8px; }
