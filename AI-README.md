@@ -66,7 +66,11 @@ V2 focuses on polish, usability, and richer content in the list experience.
 | Metal Archives CDN image URL as art fallback (Phase 2) | ✅ Done |
 | Store `ma_album_id` from scraper for MA image lookup | ✅ Done |
 | Fix Get Releases 500 (stale url_for + subprocess Playwright) | ✅ Done |
-| Bandcamp JSON-LD art fallback (Phase 3) | ✅ Done |
+| Bandcamp JSON-LD + og:image art fallback (Phase 3) | ✅ Done |
+| Image proxy `/api/art-proxy` for CDN hotlink protection | ✅ Done |
+| Fix art proxy crash (Unicode `→` in charmap stdout) | ✅ Done |
+| Debug log Copy button | ✅ Done |
+| Album art lightbox (click thumbnail in full view) | ✅ Done |
 | Home page content (TBD) | Planned |
 | listened/skipped/queued status on Releases table | Planned |
 | Scraper scheduling (cron or in-app button) | Planned |
@@ -432,6 +436,7 @@ main thread and event loop where Playwright works normally.
 - **Phone access:** Flask can bind to `0.0.0.0` instead of `127.0.0.1`. On the same WiFi, a phone accesses it at `http://<your-local-ip>:5000`. For remote access, Tailscale is the cleanest option.
 - **Date sorting:** `release_date` is stored as `YYYY-MM-DD` (normalised on scraper insert). The legacy .txt import files may have inconsistent formats — sort order may need manual cleanup.
 - **Scraper fragility:** Playwright works but is slow (30–60s per fetch). If Metal Archives changes their AJAX URL or parameters, update `AJAX_URL` and `build_ajax_url()` in `fetch_releases.py`.
+- **`ma_album_id` backfill:** releases imported from the original .txt files have `ma_album_id = NULL`. The MA CDN image fallback only works for releases scraped via the app (post Phase 2). A one-time backfill script is needed to populate IDs for existing releases.
 
 ---
 
@@ -449,3 +454,29 @@ A:\ThePit\venv\Scripts\python -m playwright install chromium
 ```
 
 Python 3.12 must be installed on the host computer.
+
+---
+
+## Active Issues (as of 2026-05-31)
+
+### Album art not rendering for some releases
+
+**Status:** In progress.
+
+Some releases that have album art visible on Metal Archives and Bandcamp are showing "No art" in the app. The art IS found by the server (logged as `art=found`) but was silently failing to deliver to the browser.
+
+**Root cause identified and fixed (not yet confirmed working in prod):**
+The `/api/art-proxy` route fetched the CDN image successfully (HTTP 200) but then crashed on a `print()` statement containing the Unicode character `→` (U+2192). On Windows with the default `charmap`/cp1252 stdout encoding, this raised a `UnicodeEncodeError` inside the `try` block, which the `except` handler caught — causing the route to return `404` instead of the image bytes. Every proxied Last.fm and Bandcamp image was silently returning 404.
+
+**Fixes applied:**
+- Changed `→` to `->` in the art proxy log line
+- Added `sys.stdout.reconfigure(encoding='utf-8')` at app startup to prevent this class of bug permanently
+- Added `og:image` meta tag as a fallback within the Bandcamp fetcher (JSON-LD was inconsistently populated)
+- Added image proxy `/api/art-proxy` for CDN hotlink-protected domains (Last.fm, Bandcamp CDN)
+
+**Remaining gap:** Releases imported from the original .txt files have `ma_album_id = NULL`, so the Metal Archives CDN fallback cannot be used for them. The 4-tier fallback chain (MusicBrainz → Last.fm → MA CDN → Bandcamp) covers most releases once the proxy fix is deployed.
+
+**Next steps if art is still missing after proxy fix:**
+- Check debug panel for `[art-proxy] ... -> 200` (proxy working) vs `→ 200` (old broken code still running — needs `git pull` + restart)
+- If Bandcamp finds a page (status 200) but `art=none`, the og:image tag may be missing; try fetching the page manually and inspecting its source
+- Consider storing art URLs in the DB after first successful fetch to avoid repeated API calls
