@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Folders — The Pit{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Folders</h1>
+    <span class="count">{{ folders|length }} folder{{ 's' if folders|length != 1 }}</span>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-primary" onclick="showNewFolderForm()">+ New Folder</button>
+  </div>
+</div>
+
+<!-- New folder form (inline, hidden by default) -->
+<div id="new-folder-form" class="card" style="display:none; max-width:440px; margin-bottom:20px;">
+  <div style="display:flex; gap:10px; align-items:center;">
+    <input type="text" id="new-folder-name" placeholder="Folder name…" maxlength="60"
+           autocomplete="off"
+           style="flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+                  padding:8px 12px; border-radius:5px; font-size:14px; outline:none;"
+           onkeydown="if(event.key==='Enter') createFolder(); if(event.key==='Escape') hideNewFolderForm()">
+    <button class="btn btn-primary" onclick="createFolder()">Create</button>
+    <button class="btn btn-ghost" onclick="hideNewFolderForm()">Cancel</button>
+  </div>
+</div>
+
+{% if folders %}
+<div class="folder-grid folder-grid-large" id="folder-grid">
+  {% for f in folders %}
+  <div class="folder-card" data-folder-id="{{ f.id }}" style="background:{{ f.color }}"
+       onclick="window.location='{{ url_for('lists', folder=f.id) }}'">
+    <div class="folder-card-icon">{{ f.name[0]|upper }}</div>
+    <div class="folder-card-label">
+      <div class="folder-card-name">{{ f.name }}</div>
+      <div class="folder-card-count">
+        {{ f.list_count }} list{{ 's' if f.list_count != 1 }}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- "New folder" ghost card -->
+  <div class="folder-card folder-card-new" onclick="showNewFolderForm()">
+    <div class="folder-card-icon" style="font-size:48px; color:var(--muted);">+</div>
+    <div class="folder-card-label">
+      <div class="folder-card-name" style="color:var(--muted);">New Folder</div>
+      <div class="folder-card-count">&nbsp;</div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No folders yet.</p>
+  <button class="btn btn-primary" style="margin-top:16px;" onclick="showNewFolderForm()">
+    Create your first folder
+  </button>
+</div>
+{% endif %}
+
+<!-- Per-folder delete buttons (shown below the grid) -->
+{% if folders %}
+<div style="margin-top:28px;">
+  <table class="folder-manage-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Lists</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in folders %}
+      <tr>
+        <td>
+          <span class="folder-dot" style="background:{{ f.color }};"></span>
+          <a href="{{ url_for('lists', folder=f.id) }}" class="folder-table-link">{{ f.name }}</a>
+        </td>
+        <td style="color:var(--muted); text-align:center;">{{ f.list_count }}</td>
+        <td style="text-align:right; padding-right:12px;">
+          <form method="POST" action="{{ url_for('folders_delete_route', folder_id=f.id) }}"
+                onsubmit="return confirm('Delete folder {{ f.name | e }}? Lists inside will move back to unassigned.')">
+            <button type="submit" class="btn-icon-danger" title="Delete folder">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<script>
+  function showNewFolderForm() {
+    document.getElementById('new-folder-form').style.display = 'block';
+    document.getElementById('new-folder-name').focus();
+  }
+  function hideNewFolderForm() {
+    document.getElementById('new-folder-form').style.display = 'none';
+    document.getElementById('new-folder-name').value = '';
+  }
+  function createFolder() {
+    var name = document.getElementById('new-folder-name').value.trim();
+    if (!name) return;
+    fetch('/folders/new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) { alert(data.error || 'Could not create folder'); return; }
+      window.location.reload();
+    })
+    .catch(function(e) { console.error('[folders] create error:', e); });
+  }
+</script>
+{% endblock %}

@@ -42,6 +42,14 @@ def init_db():
     except Exception:
         pass
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS folders (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            name       TEXT    NOT NULL UNIQUE,
+            color      TEXT    DEFAULT '#7b1c1c',
+            created_at TEXT    DEFAULT (date('now'))
+        )
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS lists (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             name        TEXT    NOT NULL UNIQUE,
@@ -49,6 +57,11 @@ def init_db():
             created_at  TEXT    DEFAULT (date('now'))
         )
     """)
+    # Safe migration: add folder_id to lists
+    try:
+        conn.execute("ALTER TABLE lists ADD COLUMN folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL")
+    except Exception:
+        pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS list_releases (
             list_id    INTEGER NOT NULL REFERENCES lists(id)    ON DELETE CASCADE,
@@ -230,6 +243,109 @@ def delete_list(list_id):
     conn = get_db()
     try:
         conn.execute("DELETE FROM lists WHERE id = ?", (list_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ── Folders ────────────────────────────────────────────────────────────────────
+
+_FOLDER_COLORS = [
+    "#7b1c1c", "#1a2a6e", "#1a4a2a", "#4a1a6a",
+    "#1a4a4a", "#6a3a00", "#4a1a1a", "#1a1a4a",
+]
+
+
+def get_all_folders():
+    conn = get_db()
+    try:
+        return conn.execute("""
+            SELECT f.*, COUNT(l.id) AS list_count
+            FROM folders f
+            LEFT JOIN lists l ON l.folder_id = f.id
+            GROUP BY f.id
+            ORDER BY f.created_at ASC
+        """).fetchall()
+    finally:
+        conn.close()
+
+
+def get_folder_by_id(folder_id):
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT * FROM folders WHERE id = ?", (folder_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def create_folder(name):
+    conn = get_db()
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM folders").fetchone()[0]
+        color = _FOLDER_COLORS[count % len(_FOLDER_COLORS)]
+        conn.execute(
+            "INSERT INTO folders (name, color) VALUES (?, ?)",
+            (name.strip(), color),
+        )
+        conn.commit()
+        return conn.execute(
+            "SELECT * FROM folders WHERE name = ?", (name.strip(),)
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def delete_folder(folder_id):
+    """Delete a folder; its lists become unassigned (folder_id = NULL)."""
+    conn = get_db()
+    try:
+        conn.execute("UPDATE lists SET folder_id = NULL WHERE folder_id = ?", (folder_id,))
+        conn.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_unassigned_lists():
+    """Return lists not assigned to any folder, with release counts."""
+    conn = get_db()
+    try:
+        return conn.execute("""
+            SELECT l.*, COUNT(lr.release_id) AS release_count
+            FROM lists l
+            LEFT JOIN list_releases lr ON l.id = lr.list_id
+            WHERE l.folder_id IS NULL
+            GROUP BY l.id ORDER BY l.created_at DESC
+        """).fetchall()
+    finally:
+        conn.close()
+
+
+def get_lists_in_folder(folder_id):
+    """Return lists assigned to a specific folder, with release counts."""
+    conn = get_db()
+    try:
+        return conn.execute("""
+            SELECT l.*, COUNT(lr.release_id) AS release_count
+            FROM lists l
+            LEFT JOIN list_releases lr ON l.id = lr.list_id
+            WHERE l.folder_id = ?
+            GROUP BY l.id ORDER BY l.created_at DESC
+        """, (folder_id,)).fetchall()
+    finally:
+        conn.close()
+
+
+def assign_list_to_folder(list_id, folder_id):
+    """Assign list to a folder. Pass folder_id=None to unassign."""
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE lists SET folder_id = ? WHERE id = ?",
+            (folder_id, list_id),
+        )
         conn.commit()
     finally:
         conn.close()

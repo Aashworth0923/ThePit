@@ -195,8 +195,62 @@ def releases():
 
 @app.route("/lists")
 def lists():
-    all_lists = db.get_all_lists()
-    return render_template("lists.html", lists=all_lists)
+    folder_id      = request.args.get("folder", type=int)
+    current_folder = None
+    if folder_id:
+        current_folder = db.get_folder_by_id(folder_id)
+        if not current_folder:
+            return redirect(url_for("lists"))
+        all_lists = db.get_lists_in_folder(folder_id)
+    else:
+        all_lists = db.get_unassigned_lists()
+    all_folders = db.get_all_folders()
+    return render_template("lists.html",
+                           lists=all_lists,
+                           folders=all_folders,
+                           current_folder=current_folder)
+
+
+@app.route("/folders")
+def folders():
+    all_folders = db.get_all_folders()
+    return render_template("folders.html", folders=all_folders)
+
+
+@app.route("/folders/new", methods=["POST"])
+def folders_new():
+    name = request.get_json(silent=True, force=True)
+    if name is None:
+        name = request.form.get("name", "")
+    elif isinstance(name, dict):
+        name = name.get("name", "")
+    name = str(name).strip()
+    if not name:
+        return jsonify({"error": "Name required"}), 400
+    try:
+        folder = db.create_folder(name)
+        return jsonify({"ok": True, "folder": {
+            "id": folder["id"], "name": folder["name"],
+            "color": folder["color"], "list_count": 0,
+        }})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/folders/<int:folder_id>/delete", methods=["POST"])
+def folders_delete_route(folder_id):
+    db.delete_folder(folder_id)
+    flash("Folder deleted — lists moved back to unassigned.", "success")
+    return redirect(url_for("folders"))
+
+
+@app.route("/lists/<int:list_id>/assign", methods=["POST"])
+def list_assign(list_id):
+    data      = request.get_json(silent=True) or {}
+    folder_id = data.get("folder_id")
+    db.assign_list_to_folder(list_id, folder_id)
+    print(f"[folders] list {list_id} assigned to folder {folder_id}", flush=True)
+    return jsonify({"ok": True})
 
 
 @app.route("/lists/new", methods=["POST"])

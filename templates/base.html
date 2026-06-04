@@ -126,7 +126,8 @@
     <div class="tab-bar">
       <a href="{{ url_for('home') }}"     class="nav-tab {% if request.endpoint == 'home'     %}active{% endif %}">Home</a>
       <a href="{{ url_for('releases') }}" class="nav-tab {% if request.endpoint == 'releases' %}active{% endif %}">Releases</a>
-      <a href="{{ url_for('lists') }}"    class="nav-tab {% if request.endpoint == 'lists'    %}active{% endif %}">Lists</a>
+      <a href="{{ url_for('lists') }}"    class="nav-tab {% if request.endpoint in ('lists', 'list_detail')    %}active{% endif %}">Lists</a>
+      <a href="{{ url_for('folders') }}"  class="nav-tab {% if request.endpoint in ('folders', 'folders_delete_route') %}active{% endif %}">Folders</a>
     </div>
   </header>
 

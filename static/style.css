@@ -694,6 +694,114 @@ main {
 }
 .btn-icon-danger:hover { color: #f87171; background: #2a1010; }
 
+.btn-icon-muted {
+  background: none; border: none; color: #555; cursor: pointer;
+  font-size: 15px; padding: 2px 6px; border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-icon-muted:hover { color: var(--muted); background: var(--surface2); }
+
+/* ── Drag handle cell ── */
+.drag-handle {
+  color: #444; cursor: grab; user-select: none; text-align: center;
+  font-size: 14px; padding: 8px 4px !important;
+}
+.drag-handle:active { cursor: grabbing; }
+tr.dragging          { opacity: 0.4; }
+
+/* ── Folder side panel ── */
+/* Reuses .drawer open/close slide mechanism, sits above it (z-index 52) */
+.folder-panel {
+  position: fixed;
+  top: 0; right: 0;
+  width: 300px; max-width: 90vw;
+  height: 100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 52;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.folder-panel.open { transform: translateX(0); }
+
+/* Nudge main content when panel is open so list rows stay visible */
+body.folders-panel-open main {
+  margin-right: 300px;
+  transition: margin-right 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Folder grid (used in panel + folders page) ── */
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  padding: 14px;
+}
+.folder-grid-large {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+  padding: 0;
+}
+
+/* ── Folder card (phone app icon style) ── */
+.folder-card {
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.12s;
+  user-select: none;
+}
+.folder-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+}
+.folder-card.drag-over {
+  border-color: #86efac;
+  box-shadow: 0 0 0 3px rgba(134, 239, 172, 0.25);
+  transform: scale(1.06);
+}
+.folder-card-new {
+  background: var(--surface2) !important;
+  border: 2px dashed var(--border);
+}
+.folder-card-new:hover { border-color: #555; }
+
+.folder-card-icon {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: -1px;
+}
+.folder-grid-large .folder-card-icon { font-size: 52px; }
+
+.folder-card-label  { padding: 7px 10px; background: rgba(0, 0, 0, 0.32); text-align: center; }
+.folder-card-name   { font-size: 12px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.folder-card-count  { font-size: 11px; color: rgba(255, 255, 255, 0.6); margin-top: 2px; }
+
+/* ── Folder breadcrumb (Lists tab when inside a folder) ── */
+.folder-breadcrumb      { display: flex; align-items: center; gap: 8px; }
+.folder-breadcrumb-back { color: var(--muted); text-decoration: none; font-size: 13px; transition: color 0.15s; }
+.folder-breadcrumb-back:hover { color: var(--text); }
+.folder-breadcrumb-sep  { color: #3a3a3a; }
+.folder-breadcrumb-name { font-size: 18px; font-weight: 600; }
+
+/* ── Folder management table (Folders page) ── */
+.folder-manage-table { width: 100%; max-width: 560px; border-collapse: collapse; font-size: 13px; }
+.folder-manage-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.folder-manage-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.folder-dot  { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.folder-table-link { color: var(--text); text-decoration: none; font-weight: 500; border-bottom: 1px solid transparent; transition: color 0.15s, border-color 0.15s; }
+.folder-table-link:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
 /* ── Flash messages ── */
 .flash {
   padding: 10px 16px;

@@ -4,23 +4,51 @@
 {% block content %}
 <div class="page-header">
   <div>
+    {% if current_folder %}
+    <div class="folder-breadcrumb">
+      <a href="{{ url_for('lists') }}" class="folder-breadcrumb-back">← Lists</a>
+      <span class="folder-breadcrumb-sep">/</span>
+      <span class="folder-breadcrumb-name"
+            style="color:{{ current_folder.color }}">{{ current_folder.name }}</span>
+    </div>
+    {% else %}
     <h1>Lists</h1>
-    <span class="count">{{ lists|length }} list{{ 's' if lists|length != 1 }}</span>
+    {% endif %}
+    <span class="count">
+      {{ lists|length }} list{{ 's' if lists|length != 1 }}
+      {% if not current_folder %} unassigned{% endif %}
+    </span>
+  </div>
+  <div class="page-actions">
+    {% if not current_folder %}
+    <button class="btn btn-ghost" id="folder-panel-toggle"
+            onclick="toggleFolderPanel()" title="Open / close folders panel">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.19a2 2 0 0 1 1.37.54L7.8 2h5.7a2 2 0 0 1 2 2l.5 8a2 2 0 0 1-2 2H1.5a2 2 0 0 1-2-2l.04-.13"/>
+        <path d="M2 2a1 1 0 0 0-1 1v1h14V3a1 1 0 0 0-1-1H2zm13 3H1l.5 8A1 1 0 0 0 2.5 14h11a1 1 0 0 0 1-.93L15 5z"/>
+      </svg>
+      Folders
+    </button>
+    {% endif %}
   </div>
 </div>
 
-<!-- Create list form -->
+<!-- Create list form (only when not browsing a folder) -->
+{% if not current_folder %}
 <form method="POST" action="{{ url_for('lists_new') }}" class="new-list-form">
   <input type="text" name="name" placeholder="New list name…" maxlength="80" required autocomplete="off">
   <input type="text" name="description" placeholder="Description (optional)" maxlength="200">
   <button type="submit" class="btn btn-primary">Create List</button>
 </form>
+{% endif %}
 
+<!-- List table -->
 {% if lists %}
-<div class="table-wrap" style="margin-top:24px;">
-  <table>
+<div class="table-wrap" style="margin-top:24px;" id="list-table-wrap">
+  <table id="lists-table">
     <thead>
       <tr>
+        {% if not current_folder %}<th style="width:28px;"></th>{% endif %}
         <th>Name</th>
         <th>Description</th>
         <th>Created</th>
@@ -30,13 +58,23 @@
     </thead>
     <tbody>
       {% for l in lists %}
-      <tr class="list-row" onclick="window.location='{{ url_for('list_detail', list_id=l.id) }}'">
+      <tr class="list-row"
+          {% if not current_folder %}draggable="true" data-list-id="{{ l.id }}"{% endif %}
+          onclick="window.location='{{ url_for('list_detail', list_id=l.id) }}'">
+        {% if not current_folder %}
+        <td class="drag-handle" onclick="event.stopPropagation()" title="Drag to a folder">⠿</td>
+        {% endif %}
         <td class="list-name">{{ l.name }}</td>
         <td class="col-muted">{{ l.description or '—' }}</td>
         <td class="col-date col-muted">{{ l.created_at | fmt_date }}</td>
         <td style="text-align:center; color:var(--muted)">{{ l.release_count }}</td>
         <td style="text-align:right; padding-right:16px;" onclick="event.stopPropagation()">
+          {% if current_folder %}
+          <button class="btn-icon-muted" title="Remove from folder"
+                  onclick="unassignList({{ l.id }})">⊘</button>
+          {% endif %}
           <form method="POST" action="{{ url_for('lists_delete', list_id=l.id) }}"
+                style="display:inline"
                 onsubmit="return confirm('Delete list {{ l.name | e }}?')">
             <button type="submit" class="btn-icon-danger" title="Delete list">✕</button>
           </form>
@@ -46,9 +84,221 @@
     </tbody>
   </table>
 </div>
+
+{% elif current_folder %}
+<div class="empty-state" style="margin-top:40px;">
+  <p>This folder is empty.</p>
+  <a href="{{ url_for('lists') }}" class="btn btn-ghost btn-sm" style="margin-top:12px;">← Back to unassigned lists</a>
+</div>
+
 {% else %}
-<div class="empty-state">
-  <p>No lists yet. Create one above.</p>
+<div class="empty-state" id="all-assigned-state" style="margin-top:40px;">
+  <p>All lists are organised in folders.</p>
+  <a href="{{ url_for('folders') }}" class="btn btn-primary" style="margin-top:16px;">Browse Folders</a>
 </div>
 {% endif %}
+
+<!-- ── Folder side panel ─────────────────────────────────────────────── -->
+<div class="drawer-overlay" id="folder-overlay" onclick="toggleFolderPanel()"></div>
+
+<aside id="folder-panel" class="folder-panel">
+  <div class="drawer-header">
+    <span style="font-size:13px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--muted);">
+      Folders
+    </span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-ghost btn-sm" id="new-folder-toggle"
+              onclick="toggleNewFolderForm()">+ New</button>
+      <button class="drawer-close" onclick="toggleFolderPanel()">×</button>
+    </div>
+  </div>
+
+  <!-- New folder inline form -->
+  <div id="new-folder-form" style="display:none; padding:12px 16px; border-bottom:1px solid var(--border);">
+    <div style="display:flex;gap:8px;">
+      <input type="text" id="new-folder-name" placeholder="Folder name…"
+             maxlength="60" autocomplete="off"
+             style="flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+                    padding:6px 10px; border-radius:4px; font-size:13px; outline:none;"
+             onkeydown="if(event.key==='Enter') createFolder()">
+      <button class="btn btn-primary btn-sm" onclick="createFolder()">Create</button>
+    </div>
+  </div>
+
+  <!-- Folder drop targets -->
+  <div class="folder-grid" id="folder-grid">
+    {% for f in folders %}
+    <div class="folder-card" data-folder-id="{{ f.id }}"
+         style="background:{{ f.color }}"
+         onclick="navigateToFolder({{ f.id }})"
+         ondragover="event.preventDefault(); this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event, this)">
+      <div class="folder-card-icon">{{ f.name[0]|upper }}</div>
+      <div class="folder-card-label">
+        <div class="folder-card-name">{{ f.name }}</div>
+        <div class="folder-card-count" id="fc-count-{{ f.id }}">{{ f.list_count }}</div>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% if not folders %}
+    <p style="color:var(--muted); font-size:13px; padding:20px 16px; text-align:center;">
+      No folders yet.<br>Create one above.
+    </p>
+    {% endif %}
+  </div>
+</aside>
+
+<script>
+  // ── Folder panel ──────────────────────────────────────────────
+  var panelOpen = localStorage.getItem('folderPanelOpen') === '1';
+
+  function toggleFolderPanel() {
+    panelOpen = !panelOpen;
+    localStorage.setItem('folderPanelOpen', panelOpen ? '1' : '0');
+    _applyPanelState();
+  }
+
+  function _applyPanelState() {
+    document.getElementById('folder-panel').classList.toggle('open', panelOpen);
+    document.getElementById('folder-overlay').classList.toggle('open', panelOpen);
+    document.body.classList.toggle('folders-panel-open', panelOpen);
+    var btn = document.getElementById('folder-panel-toggle');
+    if (btn) btn.classList.toggle('active', panelOpen);
+  }
+
+  if (panelOpen) _applyPanelState();
+
+  // ── New folder form ───────────────────────────────────────────
+  function toggleNewFolderForm() {
+    var form = document.getElementById('new-folder-form');
+    var visible = form.style.display !== 'none';
+    form.style.display = visible ? 'none' : 'block';
+    if (!visible) document.getElementById('new-folder-name').focus();
+  }
+
+  function createFolder() {
+    var name = document.getElementById('new-folder-name').value.trim();
+    if (!name) return;
+    fetch('/folders/new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) { alert(data.error || 'Could not create folder'); return; }
+      document.getElementById('new-folder-name').value = '';
+      document.getElementById('new-folder-form').style.display = 'none';
+      _injectFolderCard(data.folder);
+      // Remove "no folders" message if present
+      var emp = document.querySelector('#folder-grid p');
+      if (emp) emp.remove();
+    })
+    .catch(function(e) { console.error('[folders] create error:', e); });
+  }
+
+  function _injectFolderCard(f) {
+    var grid = document.getElementById('folder-grid');
+    var card = document.createElement('div');
+    card.className = 'folder-card';
+    card.dataset.folderId = f.id;
+    card.style.background = f.color;
+    card.setAttribute('ondragover', "event.preventDefault(); this.classList.add('drag-over')");
+    card.setAttribute('ondragleave', "this.classList.remove('drag-over')");
+    card.setAttribute('ondrop', "handleDrop(event, this)");
+    card.setAttribute('onclick', "navigateToFolder(" + f.id + ")");
+    card.innerHTML = '<div class="folder-card-icon">' + f.name[0].toUpperCase() + '</div>'
+      + '<div class="folder-card-label">'
+      + '<div class="folder-card-name">' + f.name + '</div>'
+      + '<div class="folder-card-count" id="fc-count-' + f.id + '">0</div>'
+      + '</div>';
+    grid.appendChild(card);
+  }
+
+  function navigateToFolder(folderId) {
+    window.location.href = '/lists?folder=' + folderId;
+  }
+
+  // ── Drag and drop ─────────────────────────────────────────────
+  var rows = document.querySelectorAll('tr[draggable="true"]');
+  rows.forEach(function(row) {
+    row.addEventListener('dragstart', function(e) {
+      e.dataTransfer.setData('list-id', this.dataset.listId);
+      e.dataTransfer.effectAllowed = 'move';
+      this.classList.add('dragging');
+      // Auto-open panel if not already open
+      if (!panelOpen) toggleFolderPanel();
+    });
+    row.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+    });
+  });
+
+  function handleDrop(event, card) {
+    event.preventDefault();
+    card.classList.remove('drag-over');
+    var listId   = event.dataTransfer.getData('list-id');
+    var folderId = card.dataset.folderId;
+    if (!listId || !folderId) return;
+
+    fetch('/lists/' + listId + '/assign', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ folder_id: parseInt(folderId) }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) return;
+      // Fade out the list row
+      var row = document.querySelector('tr[data-list-id="' + listId + '"]');
+      if (row) {
+        row.style.transition = 'opacity 0.3s, max-height 0.3s';
+        row.style.opacity = '0';
+        setTimeout(function() {
+          row.remove();
+          _updateEmptyState();
+        }, 320);
+      }
+      // Increment folder badge
+      var badge = document.getElementById('fc-count-' + folderId);
+      if (badge) badge.textContent = parseInt(badge.textContent || 0) + 1;
+    })
+    .catch(function(e) { console.error('[folders] drop error:', e); });
+  }
+
+  function _updateEmptyState() {
+    var remaining = document.querySelectorAll('tr[data-list-id]').length;
+    if (remaining === 0) {
+      var wrap = document.getElementById('list-table-wrap');
+      if (wrap) {
+        wrap.style.transition = 'opacity 0.3s';
+        wrap.style.opacity = '0';
+        setTimeout(function() {
+          wrap.innerHTML = '<div class="empty-state" style="padding:60px 24px; text-align:center;">'
+            + '<p>All lists are organised in folders.</p>'
+            + '<a href="/folders" class="btn btn-primary" style="margin-top:16px;">Browse Folders</a>'
+            + '</div>';
+          wrap.style.opacity = '1';
+          wrap.style.border = 'none';
+        }, 320);
+      }
+    }
+  }
+
+  // ── Unassign list from folder ─────────────────────────────────
+  function unassignList(listId) {
+    if (!confirm('Remove this list from the folder?')) return;
+    fetch('/lists/' + listId + '/assign', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ folder_id: null }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) window.location.reload();
+    });
+  }
+</script>
 {% endblock %}
