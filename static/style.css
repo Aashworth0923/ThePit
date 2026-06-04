@@ -879,53 +879,105 @@ body.folders-panel-open main {
   padding: 0;
 }
 
-/* ── Base card ── */
+/* ── Base card — jewel-case on a shelf ── */
+/*
+  At rest: very slight rotateX so the card appears to lay at a tiny angle
+           on a shelf (transform-origin near bottom = bottom stays put,
+           top tilts very slightly back).
+  Hover:   rotateX increases so the top recedes and the BOTTOM EDGE PEEKS
+           forward toward the viewer — the "pick it up and tilt it" look.
+           Scale + lift happen FAST. The light gradient cross-fades SLOWLY.
+*/
 .folder-card {
-  border-radius: 3px;             /* Steam: very subtle corners */
+  border-radius: 3px;
   overflow: hidden;
   cursor: pointer;
   position: relative;
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
-  transition: transform 0.13s ease-out, box-shadow 0.13s ease-out, border-color 0.13s;
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.55),
+              0 1px 0 rgba(0,0,0,0.8),          /* bottom-edge depth line */
+              inset 0 1px 0 rgba(255,255,255,0.05);
+  /* FAST transform, SLOW border — gradient handled separately */
+  transition: transform  0.15s cubic-bezier(0.2,0,0.1,1),
+              box-shadow 0.15s ease-out,
+              border-color 0.15s;
   user-select: none;
+  /* Tiny rest tilt: card leans very slightly back like it's on a shelf */
+  transform: perspective(750px) rotateX(2deg);
+  transform-origin: center 88%;   /* pivot near bottom — bottom stays, top moves */
 }
 
-/* Hover: scale + lift + deeper shadow (Steam's signature feel) */
 .folder-card:hover {
-  transform: scale(1.04) translateY(-3px);
-  box-shadow: 0 16px 36px rgba(0,0,0,0.75), 0 4px 12px rgba(0,0,0,0.5);
-  border-color: rgba(255,255,255,0.18);
+  /* Bottom peeks toward viewer as top tilts away.
+     scale(1.04) + translateY lifts it off the shelf. */
+  transform: perspective(750px) rotateX(8deg) scale(1.04) translateY(-6px);
+  box-shadow: 0 22px 44px rgba(0,0,0,0.82),
+              0 8px 16px rgba(0,0,0,0.55),
+              0 3px 0 rgba(0,0,0,0.9);           /* bottom edge more visible */
+  border-color: rgba(255,255,255,0.2);
   z-index: 2;
 }
 
-/* ::after top-shine that slides in on hover */
+/* ── Jewel-case light reflection — TWO gradients that cross-fade ──
+   ::before  = rest:  bright band at ~25% from top-right
+   ::after   = hover: bright band drifts down to ~40%
+   Transform is fast; gradient cross-fade is slow (0.45s).          */
+
+.folder-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    128deg,
+    rgba(255,255,255,0.16) 0%,
+    rgba(255,255,255,0.07) 24%,
+    transparent 48%
+  );
+  opacity: 1;
+  transition: opacity 0.45s ease-out;  /* SLOW */
+  pointer-events: none;
+  z-index: 8;
+}
+
 .folder-card::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(170deg, rgba(255,255,255,0.09) 0%, transparent 55%);
+  background: linear-gradient(
+    128deg,
+    rgba(255,255,255,0.12) 0%,
+    rgba(255,255,255,0.05) 40%,
+    transparent 64%
+  );
   opacity: 0;
-  transition: opacity 0.18s ease-out;
+  transition: opacity 0.45s ease-out;  /* SLOW */
   pointer-events: none;
-  z-index: 10;
+  z-index: 9;
 }
-.folder-card:hover::after { opacity: 1; }
 
-/* Drag-over target (keep green accent from original) */
+/* Cross-fade: rest gradient fades out, hover gradient fades in */
+.folder-card:hover::before { opacity: 0; }
+.folder-card:hover::after  { opacity: 1; }
+
+/* Drag-over: green accent, keep 3D transform */
 .folder-card.drag-over {
   border-color: #86efac;
-  box-shadow: 0 0 0 2px rgba(134,239,172,0.35), 0 8px 24px rgba(0,0,0,0.6);
-  transform: scale(1.06);
+  box-shadow: 0 0 0 2px rgba(134,239,172,0.35), 0 10px 28px rgba(0,0,0,0.7);
+  transform: perspective(750px) rotateX(8deg) scale(1.06) translateY(-6px);
 }
 
 /* "+ New Folder" ghost card */
 .folder-card-new {
   background: rgba(255,255,255,0.03) !important;
-  border: 1px dashed rgba(255,255,255,0.14) !important;
+  border: 1px dashed rgba(255,255,255,0.15) !important;
   box-shadow: none !important;
+  transform: none !important;
 }
-.folder-card-new:hover { border-color: rgba(255,255,255,0.28) !important; }
+.folder-card-new:hover {
+  border-color: rgba(255,255,255,0.28) !important;
+  transform: scale(1.03) translateY(-2px) !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.5) !important;
+}
 
 /* ── Icon area (square, holds art + initial + name overlay) ── */
 .folder-card-icon {
