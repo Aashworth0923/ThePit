@@ -318,6 +318,26 @@ def get_all_folders():
         conn.close()
 
 
+def get_folder_art_urls(folder_id, limit=4):
+    """Return up to `limit` distinct art URLs from releases in a folder's lists."""
+    conn = get_db()
+    try:
+        rows = conn.execute("""
+            SELECT DISTINCT r.art_url
+            FROM   releases r
+            JOIN   list_releases lr ON r.id   = lr.release_id
+            JOIN   lists         l  ON l.id   = lr.list_id
+            WHERE  l.folder_id = ?
+              AND  r.art_url IS NOT NULL
+              AND  r.art_url != ''
+            ORDER BY RANDOM()
+            LIMIT ?
+        """, (folder_id, limit)).fetchall()
+        return [r["art_url"] for r in rows]
+    finally:
+        conn.close()
+
+
 def get_folder_by_id(folder_id):
     conn = get_db()
     try:

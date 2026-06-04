@@ -193,6 +193,16 @@ def releases():
                            genre_map=genre_map)
 
 
+def _enrich_folders(folders):
+    """Attach proxied collage art URLs to each folder dict."""
+    result = []
+    for f in folders:
+        d = dict(f)
+        d["art_urls"] = [_proxy_url(u) for u in db.get_folder_art_urls(f["id"])]
+        result.append(d)
+    return result
+
+
 @app.route("/lists")
 def lists():
     folder_id      = request.args.get("folder", type=int)
@@ -204,7 +214,7 @@ def lists():
         all_lists = db.get_lists_in_folder(folder_id)
     else:
         all_lists = db.get_unassigned_lists()
-    all_folders = db.get_all_folders()
+    all_folders = _enrich_folders(db.get_all_folders())
     return render_template("lists.html",
                            lists=all_lists,
                            folders=all_folders,
@@ -213,7 +223,7 @@ def lists():
 
 @app.route("/folders")
 def folders():
-    all_folders = db.get_all_folders()
+    all_folders = _enrich_folders(db.get_all_folders())
     return render_template("folders.html", folders=all_folders)
 
 

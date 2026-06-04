@@ -133,7 +133,14 @@
          ondragover="event.preventDefault(); this.classList.add('drag-over')"
          ondragleave="this.classList.remove('drag-over')"
          ondrop="handleDrop(event, this)">
+      {% if f.art_urls %}
+      <div class="folder-card-collage">
+        {% for url in f.art_urls %}<img src="{{ url }}" alt="" onerror="this.style.display='none'">{% endfor %}
+        {% for _ in range(4 - f.art_urls|length) %}<div class="folder-card-icon-fill">{{ f.name[0]|upper }}</div>{% endfor %}
+      </div>
+      {% else %}
       <div class="folder-card-icon">{{ f.name[0]|upper }}</div>
+      {% endif %}
       <div class="folder-card-label">
         <div class="folder-card-name">{{ f.name }}</div>
         <div class="folder-card-count" id="fc-count-{{ f.id }}">{{ f.list_count }}</div>

@@ -90,10 +90,12 @@
   <div id="fps-date" class="fps" style="display:none;">
     <div class="fps-fields">
       <div class="fps-field"><label>From</label>
-        <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31">
+        <input type="date" id="fp-date-from" min="1960-01-01" max="2100-12-31"
+               onclick="try{this.showPicker()}catch(e){}">
       </div>
       <div class="fps-field"><label>To</label>
-        <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31">
+        <input type="date" id="fp-date-to" min="1960-01-01" max="2100-12-31"
+               onclick="try{this.showPicker()}catch(e){}">
       </div>
     </div>
     <div class="fps-actions">
@@ -620,11 +622,26 @@
     document.getElementById('drawer-art-placeholder').style.display = 'flex';
   }
 
+  // Album-link button click (keeps existing behaviour)
   document.addEventListener('click', function(e) {
     var btn = e.target.closest('.album-link');
     if (!btn) return;
     openDrawer(btn.dataset.id, btn.dataset.artist, btn.dataset.album);
   });
+
+  // Any row click (outside the checkbox column) also opens the drawer
+  var tbl = document.getElementById('releases-table');
+  if (tbl) {
+    tbl.addEventListener('click', function(e) {
+      if (e.target.closest('.col-cb'))       return; // checkbox — don't open drawer
+      if (e.target.closest('.album-link'))   return; // album name — handled above
+      if (e.target.closest('.filter-icon'))  return; // filter buttons in headers
+      var row = e.target.closest('tbody tr');
+      if (!row) return;
+      var btn = row.querySelector('.album-link');
+      if (btn) openDrawer(btn.dataset.id, btn.dataset.artist, btn.dataset.album);
+    });
+  }
 
   function openDrawer(id, artist, album) {
     if (currentRequest) currentRequest.abort();
