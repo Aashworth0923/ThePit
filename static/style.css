@@ -325,6 +325,120 @@ main {
 .fps-actions           { display: flex; gap: 8px; align-items: center; margin-left: auto; }
 .btn-sm                { padding: 5px 14px; font-size: 12px; }
 
+/* ── List picker (multi-select dropdown on releases page) ── */
+.lp-wrap     { position: relative; }
+.lp-dropdown {
+  position: fixed;          /* fixed so it's never clipped by overflow containers */
+  z-index: 500;
+  width: 280px;
+  background: #1c1c1c;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  overflow: hidden;
+}
+
+/* Search row */
+.lp-search-row { padding: 10px 12px 6px; border-bottom: 1px solid var(--border); }
+.lp-search-row input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  outline: none;
+}
+.lp-search-row input:focus { border-color: #555; }
+.lp-search-row input::placeholder { color: var(--muted); }
+
+/* New list trigger row */
+.lp-new-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 500;
+  transition: background 0.12s;
+}
+.lp-new-trigger:hover { background: var(--surface2); }
+.lp-plus { font-size: 16px; line-height: 1; }
+
+/* New list inline form */
+.lp-new-form {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+.lp-new-form input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 9px;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+}
+.lp-new-form input:focus { border-color: #555; }
+.lp-create-btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 5px 11px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lp-create-btn:hover { background: var(--accent-h); }
+
+/* Divider */
+.lp-divider { height: 1px; background: var(--border); margin: 0; }
+
+/* Scrollable list of items */
+.lp-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 80px;
+  max-height: 230px;
+}
+.lp-list .lp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  transition: background 0.1s;
+}
+.lp-list .lp-item:hover  { background: var(--surface2); }
+.lp-list .lp-check       { cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+.lp-name                 { flex: 1; }
+.lp-empty                { padding: 16px 14px; color: var(--muted); font-size: 13px; font-style: italic; }
+
+/* Footer */
+.lp-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: #1a1a1a;
+  flex-shrink: 0;
+}
+.lp-footer .selection-msg { font-size: 12px; color: #86efac; font-style: italic; }
+
 /* ── Checkbox column ── */
 .col-cb {
   width: 36px;

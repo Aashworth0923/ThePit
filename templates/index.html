@@ -24,14 +24,57 @@
 <div class="selection-bar" id="selection-bar" style="display:none;">
   <span id="selection-count"></span>
   <div class="selection-actions">
-    <select id="add-to-list-select">
-      <option value="">Add to list…</option>
-      {% for l in lists %}
-      <option value="{{ l.id }}">{{ l.name }}</option>
-      {% endfor %}
-    </select>
-    <button class="btn btn-primary btn-sm" onclick="addSelectionToList()">Add</button>
-    <span id="selection-msg" class="selection-msg" style="display:none;"></span>
+
+    <!-- Custom multi-select list picker -->
+    <div class="lp-wrap" id="lp-wrap">
+      <button class="btn btn-primary btn-sm" onclick="toggleListPicker(event)" id="lp-trigger">
+        Add to List ▾
+      </button>
+
+      <div class="lp-dropdown" id="lp-dropdown" style="display:none;">
+        <!-- Search -->
+        <div class="lp-search-row">
+          <input type="text" id="lp-search" placeholder="Search lists…"
+                 oninput="lpFilter()" autocomplete="off">
+        </div>
+
+        <!-- Pinned: New List -->
+        <div class="lp-item lp-new-trigger" id="lp-new-trigger" onclick="lpToggleNewForm()">
+          <span class="lp-plus">＋</span>
+          <span>New List</span>
+        </div>
+        <div class="lp-new-form" id="lp-new-form" style="display:none;">
+          <input type="text" id="lp-new-name" placeholder="List name…" maxlength="80"
+                 autocomplete="off"
+                 onkeydown="if(event.key==='Enter') lpCreateList(); if(event.key==='Escape') lpToggleNewForm()">
+          <button class="lp-create-btn" onclick="lpCreateList()">Create</button>
+        </div>
+
+        <div class="lp-divider"></div>
+
+        <!-- List items with checkboxes -->
+        <div class="lp-list" id="lp-list">
+          {% for l in lists %}
+          <label class="lp-item" data-lname="{{ l.name | lower | e }}">
+            <input type="checkbox" class="lp-check" value="{{ l.id }}">
+            <span class="lp-name">{{ l.name }}</span>
+          </label>
+          {% endfor %}
+          {% if not lists %}
+          <div class="lp-empty" id="lp-empty">No lists yet — create one above.</div>
+          {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="lp-footer">
+          <button class="btn btn-primary btn-sm" onclick="lpAddToSelected()" id="lp-add-btn">Add</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeListPicker()">Cancel</button>
+          <span class="selection-msg" id="lp-msg" style="display:none;"></span>
+        </div>
+      </div>
+    </div>
+    <!-- end picker -->
+
     <button class="btn btn-ghost btn-sm" onclick="clearSelection()">Deselect all</button>
   </div>
 </div>
@@ -392,27 +435,135 @@
     updateSelectAllCheckbox();
   }
 
-  // ── Add to list ───────────────────────────────────────────────
-  function addSelectionToList() {
-    var sel      = document.getElementById('add-to-list-select');
-    var listId   = sel.value;
-    var listName = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-    if (!listId || selectedIds.size === 0) return;
+  // ── List picker (multi-select dropdown) ──────────────────────
+  var lpOpen = false;
 
-    fetch('/lists/' + listId + '/add', {
+  function toggleListPicker(event) {
+    if (event) event.stopPropagation();
+    lpOpen ? closeListPicker() : openListPicker();
+  }
+
+  function openListPicker() {
+    var dd = document.getElementById('lp-dropdown');
+    if (!dd) return;
+    dd.style.display = 'block';
+    lpOpen = true;
+    // Position below trigger
+    var trigger = document.getElementById('lp-trigger');
+    var rect    = trigger.getBoundingClientRect();
+    dd.style.top  = (rect.bottom + 6) + 'px';
+    dd.style.left = Math.max(8, rect.left - 160) + 'px'; // left-align but don't go off-screen
+    setTimeout(function() { document.getElementById('lp-search').focus(); }, 50);
+  }
+
+  function closeListPicker() {
+    var dd = document.getElementById('lp-dropdown');
+    if (dd) dd.style.display = 'none';
+    lpOpen = false;
+    // Reset state
+    document.getElementById('lp-search').value = '';
+    lpFilter();
+    document.querySelectorAll('.lp-check').forEach(function(cb) { cb.checked = false; });
+    var form = document.getElementById('lp-new-form');
+    if (form) form.style.display = 'none';
+  }
+
+  // Close picker when clicking outside
+  document.addEventListener('click', function(e) {
+    if (lpOpen && !e.target.closest('#lp-wrap')) closeListPicker();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && lpOpen) closeListPicker();
+  });
+
+  function lpFilter() {
+    var q = (document.getElementById('lp-search').value || '').toLowerCase();
+    document.querySelectorAll('#lp-list .lp-item').forEach(function(item) {
+      var name = (item.dataset.lname || '');
+      item.style.display = name.includes(q) ? '' : 'none';
+    });
+    var empty = document.getElementById('lp-empty');
+    if (empty) {
+      var visible = document.querySelectorAll('#lp-list .lp-item:not([style*="none"])').length;
+      empty.style.display = visible === 0 ? 'block' : 'none';
+    }
+  }
+
+  function lpToggleNewForm() {
+    var form = document.getElementById('lp-new-form');
+    if (!form) return;
+    var show = form.style.display === 'none';
+    form.style.display = show ? 'flex' : 'none';
+    if (show) setTimeout(function() { document.getElementById('lp-new-name').focus(); }, 50);
+  }
+
+  function lpCreateList() {
+    var input = document.getElementById('lp-new-name');
+    var name  = input.value.trim();
+    if (!name) return;
+
+    fetch('/lists/new', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ release_ids: Array.from(selectedIds) })
+      body:    JSON.stringify({ name: name }),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var msg = document.getElementById('selection-msg');
-      msg.textContent  = data.added + ' added to "' + listName + '"';
-      msg.style.display = 'inline';
-      setTimeout(function() { msg.style.display = 'none'; }, 3000);
-      sel.value = '';
+      if (!data.ok) { alert(data.error || 'Could not create list'); return; }
+      input.value = '';
+      document.getElementById('lp-new-form').style.display = 'none';
+      // Inject new item into the picker list, pre-checked
+      var listEl = document.getElementById('lp-list');
+      var empty  = document.getElementById('lp-empty');
+      if (empty) empty.style.display = 'none';
+      var label = document.createElement('label');
+      label.className = 'lp-item';
+      label.dataset.lname = data.name.toLowerCase();
+      label.innerHTML = '<input type="checkbox" class="lp-check" value="' + data.id + '" checked>'
+                      + '<span class="lp-name">' + data.name + '</span>';
+      listEl.prepend(label);
+      console.log('[lists] created and added to picker:', data.name);
     })
-    .catch(function(err) { console.error('[lists] add error:', err); });
+    .catch(function(e) { console.error('[lists] create error:', e); });
+  }
+
+  function lpAddToSelected() {
+    var checked = Array.from(document.querySelectorAll('.lp-check:checked'));
+    if (checked.length === 0 || selectedIds.size === 0) return;
+
+    var releaseIds = Array.from(selectedIds);
+    var listNames  = checked.map(function(cb) {
+      var label = cb.closest('.lp-item');
+      return label ? label.querySelector('.lp-name').textContent : cb.value;
+    });
+    var btn = document.getElementById('lp-add-btn');
+    if (btn) btn.disabled = true;
+
+    var promises = checked.map(function(cb) {
+      return fetch('/lists/' + cb.value + '/add', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ release_ids: releaseIds }),
+      }).then(function(r) { return r.json(); });
+    });
+
+    Promise.all(promises)
+      .then(function(results) {
+        var totalAdded = results.reduce(function(s, d) { return s + (d.added || 0); }, 0);
+        var msg = document.getElementById('lp-msg');
+        msg.textContent  = totalAdded + ' release' + (totalAdded !== 1 ? 's' : '')
+                         + ' added to ' + listNames.join(', ');
+        msg.style.display = 'inline';
+        if (btn) btn.disabled = false;
+        setTimeout(function() {
+          msg.style.display = 'none';
+          closeListPicker();
+        }, 2500);
+      })
+      .catch(function(e) {
+        console.error('[lists] add error:', e);
+        if (btn) btn.disabled = false;
+      });
   }
 
   // ── Drawer ────────────────────────────────────────────────────
