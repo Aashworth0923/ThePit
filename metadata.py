@@ -310,5 +310,18 @@ def get_release_meta(artist, album, ma_album_id=None):
 
     result["bio"] = _get_bio(artist)
 
+    # Defensive merge: if a concurrent request already cached a better result,
+    # keep the better values rather than overwriting with blanks.
+    # This prevents the race condition where two parallel lookups for the same
+    # release both miss the cache, and the slower one (with no art found)
+    # overwrites the faster one (which did find art).
+    existing = _cache.get(key)
+    if existing:
+        if existing.get("art_url") and not result["art_url"]:
+            result["art_url"] = existing["art_url"]
+            print(f"[meta] kept existing art_url from concurrent request for {artist!r}", flush=True)
+        if existing.get("bio") and not result["bio"]:
+            result["bio"] = existing["bio"]
+
     _cache[key] = result
     return {**result, "cached": False}

@@ -376,10 +376,19 @@
 
   function _loadItemMeta(item) {
     var id = item.dataset.id;
+    // Mark as in-progress BEFORE the fetch so _loadAllThumbs can't
+    // queue this item a second time if called again before we finish
+    item.dataset.artLoaded = 'loading';
+
     return fetch('/release/' + id + '/meta')
       .then(function(r) { return r.json(); })
       .then(function(data) {
         item.dataset.artLoaded = '1';
+        // Log what the server returned so race conditions are visible in the debug panel
+        console.log('[art] id=' + id
+          + ' art=' + (data.art_url ? data.art_url.slice(0, 60) + '...' : 'none')
+          + ' bio=' + (data.bio ? 'yes' : 'no')
+          + ' cached=' + data.cached);
 
         // Thumbnail
         var thumbEl = document.getElementById('thumb-' + id);
