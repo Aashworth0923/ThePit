@@ -36,11 +36,16 @@ def init_db():
             UNIQUE(artist, album)
         )
     """)
-    # Add ma_album_id if the table already existed without it
-    try:
-        conn.execute("ALTER TABLE releases ADD COLUMN ma_album_id TEXT")
-    except Exception:
-        pass
+    # Safe migrations — only add new columns, never drop
+    for col, defn in [
+        ("ma_album_id", "TEXT"),
+        ("art_url",     "TEXT"),   # NULL=never fetched  ''=fetched/not-found  URL=found
+        ("bio_text",    "TEXT"),   # NULL or ''=none found  text=found
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE releases ADD COLUMN {col} {defn}")
+        except Exception:
+            pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS folders (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,6 +127,49 @@ def get_release_by_id(release_id):
         return conn.execute(
             "SELECT * FROM releases WHERE id = ?", (release_id,)
         ).fetchone()
+    finally:
+        conn.close()
+
+
+def get_release_art_cache(release_id):
+    """
+    Return persisted art/bio if we have already fetched it for this release.
+    Returns None if the release has never been looked up.
+    Returns {"art_url": str|None, "bio": str|None} if it has been looked up
+    (art_url/bio will be None when the lookup found nothing).
+    """
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT art_url, bio_text FROM releases WHERE id = ? AND art_url IS NOT NULL",
+            (release_id,)
+        ).fetchone()
+        if row is None:
+            return None   # Never fetched
+        return {
+            "art_url": row["art_url"]  or None,   # '' → None
+            "bio":     row["bio_text"] or None,
+        }
+    finally:
+        conn.close()
+
+
+def save_release_art_cache(release_id, art_url, bio):
+    """
+    Persist the result of an art/bio lookup.
+    Store empty string '' when nothing was found so future calls skip the APIs.
+    Store the raw CDN URL (not the proxied version) so proxy logic can evolve.
+    """
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE releases SET art_url = ?, bio_text = ? WHERE id = ?",
+            (art_url or "", bio or "", release_id),
+        )
+        conn.commit()
+        print(f"[db-art] saved for id={release_id}: "
+              f"art={'yes' if art_url else 'none'} "
+              f"bio={'yes' if bio else 'none'}", flush=True)
     finally:
         conn.close()
 

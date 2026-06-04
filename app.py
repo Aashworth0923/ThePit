@@ -435,14 +435,35 @@ def release_meta(release_id):
             return jsonify({"error": "Release not found"}), 404
 
         print(f"[meta] found: {release['artist']} — {release['album']} (ma_id={release['ma_album_id']})", flush=True)
+
+        # ── Fast path: serve from persisted DB cache ──────────────────────────
+        db_cache = db.get_release_art_cache(release_id)
+        if db_cache is not None:
+            print(f"[meta] db-cache hit: art={'yes' if db_cache['art_url'] else 'none'} "
+                  f"bio={'yes' if db_cache['bio'] else 'none'}", flush=True)
+            return jsonify({
+                "artist":       release["artist"],
+                "album":        release["album"],
+                "type":         release["type"],
+                "genre":        release["genre"],
+                "release_date": release["release_date"],
+                "art_url":      _proxy_url(db_cache["art_url"]),
+                "bio":          db_cache["bio"],
+                "cached":       True,
+            })
+
+        # ── Slow path: call APIs, then persist result ─────────────────────────
         meta = metadata.get_release_meta(
             release["artist"],
             release["album"],
             ma_album_id=release["ma_album_id"],
         )
-        print(f"[meta] art={'found' if meta['art_url'] else 'none'} | "
+        print(f"[meta] api: art={'found' if meta['art_url'] else 'none'} | "
               f"bio={'found' if meta['bio'] else 'none'} | "
-              f"cached={meta['cached']}", flush=True)
+              f"in-mem-cached={meta['cached']}", flush=True)
+
+        # Persist (raw URL, not proxied — so proxy logic can change without re-fetching)
+        db.save_release_art_cache(release_id, meta["art_url"], meta["bio"])
 
         return jsonify({
             "artist":       release["artist"],
