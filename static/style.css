@@ -1831,13 +1831,14 @@ td { padding: 8px 12px; vertical-align: middle; }
   width: 90vw;
 }
 .vid-player {
-  width: 100%;
-  aspect-ratio: 16 / 9;
+  /* Let the video use its natural dimensions — no forced aspect-ratio
+     so grey letterbox bars don't appear around the content */
+  max-width: 90vw;
+  max-height: 80vh;
   display: block;
   border-radius: 6px;
-  background: #111;
+  background: transparent;
   outline: none;
-  /* controls hidden — JS toggles them on mouseenter/leave */
 }
 
 /* Continue button: intentionally too far down and not flush right */

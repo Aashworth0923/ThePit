@@ -214,6 +214,33 @@
   var _vidDeleteId   = null;
   var _vidDeleteType = null;
 
+  var _vidBlobUrl     = null;
+  var _successBlobUrl = null;
+
+  function closeSuccessVideo() {
+    document.getElementById('success-overlay').style.display = 'none';
+    var v = document.getElementById('success-player');
+    if (v) { try { v.pause(); } catch(e) {} v.controls = false; }
+  }
+
+  function playSuccessVideo() {
+    document.getElementById('success-overlay').style.display = 'flex';
+    var vid = document.getElementById('success-player');
+    if (!vid) return;
+    vid.controls = false;
+    vid.addEventListener('mouseenter', function() { vid.controls = true;  });
+    vid.addEventListener('mouseleave', function() { vid.controls = false; });
+    function _play(url) {
+      vid.src = url; vid.currentTime = 0;
+      vid.play().catch(function(e) { console.warn('[success-video]', e.message); vid.controls = true; });
+    }
+    if (_successBlobUrl) { _play(_successBlobUrl); return; }
+    fetch('/resources/success%20recover/1668404707031246.webm')
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(function(b) { _successBlobUrl = URL.createObjectURL(b); _play(_successBlobUrl); })
+      .catch(function(e) { console.error('[success-video] load error:', e.message); closeSuccessVideo(); });
+  }
+
   var _vidBlobUrl = null;
 
   function sidDelete(id, type) {
@@ -413,20 +440,22 @@
   }
 
   function tsRecover(id, type) {
-    var btn = document.getElementById('trb-' + type + '-' + id);
+    var btn  = document.getElementById('trb-' + type + '-' + id);
     var item = document.getElementById('tsi-' + type + '-' + id);
-    if (btn) { btn.disabled = true; }
+    if (btn) btn.disabled = true;
     fetch('/trash/restore-' + type + '/' + id, { method: 'POST' })
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.ok && item) {
-          item.style.transition = 'opacity 0.4s';
-          item.style.opacity = '0.35';
+        if (d.ok) {
+          // Fade the trash row
+          if (item) { item.style.transition = 'opacity 0.4s'; item.style.opacity = '0.35'; }
           if (btn) btn.innerHTML = '⭐ Done!';
+          // Play the success video as a celebration popup
+          playSuccessVideo();
         }
       })
       .catch(function(e) {
-        console.error('[trash] restore error:', e);
+        console.error('[trash] restore error:', e.message || e);
         if (btn) btn.disabled = false;
       });
   }
@@ -438,6 +467,16 @@
     if (n > 0 && badge) { badge.textContent = n; badge.style.display = 'flex'; }
   }).catch(function(){});
   </script>
+
+  <!-- ── Recovery success video popup ────────────────────────────── -->
+  <div id="success-overlay" class="vid-overlay" style="display:none;">
+    <div class="vid-popup">
+      <video id="success-player" class="vid-player" playsinline controls></video>
+      <div class="vid-continue-wrap">
+        <button class="vid-continue-btn" onclick="closeSuccessVideo()">Continue</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Permanent-delete video popup ─────────────────────────────── -->
   <div id="vid-overlay" class="vid-overlay" style="display:none;">
