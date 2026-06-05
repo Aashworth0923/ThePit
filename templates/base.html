@@ -210,6 +210,35 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── Permanent delete state ───────────────────────────────────────
+  var _vidDeleteId   = null;
+  var _vidDeleteType = null;
+
+  function sidDelete(id, type) {
+    _vidDeleteId   = id;
+    _vidDeleteType = type;
+    var vid = document.getElementById('vid-player');
+    if (vid) { vid.currentTime = 0; vid.play(); }
+    document.getElementById('vid-overlay').style.display = 'flex';
+  }
+
+  function vidConfirmDelete() {
+    document.getElementById('vid-overlay').style.display = 'none';
+    var vid = document.getElementById('vid-player');
+    if (vid) vid.pause();
+    if (!_vidDeleteId) return;
+    fetch('/trash/delete-' + _vidDeleteType + '/' + _vidDeleteId, { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) {
+          var item = document.getElementById('tsi-' + _vidDeleteType + '-' + _vidDeleteId);
+          if (item) { item.style.transition='opacity 0.4s'; item.style.opacity='0'; setTimeout(function(){ item.remove(); },420); }
+        }
+        _vidDeleteId = null; _vidDeleteType = null;
+      })
+      .catch(function(e) { console.error('[trash] perm-delete error:', e); });
+  }
+
   // ── SVG artwork (legally distinct from Toy Story IP) ─────────────
   // Cowboy stick figure: wide-brim hat + neckerchief + star badge.
   // Not a reproduction of any specific character.
@@ -249,20 +278,53 @@
     + '<path d="M26 22 Q33 19 31 24 Q29 29 33 26" fill="none" stroke="currentColor" stroke-width="2"/>' // tail
     + '</svg>';
 
+  // Skull-shirt destructive kid (legally distinct from Sid Phillips).
+  // Generic messy-haired kid with a skull on chest. Not a reproduction.
+  var TS_SID = '<svg viewBox="0 0 38 52" width="26" height="36" xmlns="http://www.w3.org/2000/svg">'
+    // spiky messy hair
+    + '<path d="M10 12 L8 4 L14 10 L16 2 L19 9 L22 2 L24 10 L30 4 L28 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'
+    // head
+    + '<circle cx="19" cy="20" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/>'
+    // mean squinting eyes (uneven)
+    + '<line x1="14" y1="18" x2="17" y2="19" stroke="currentColor" stroke-width="2"/>'
+    + '<line x1="21" y1="18" x2="24" y2="19" stroke="currentColor" stroke-width="2"/>'
+    // smirk mouth
+    + '<path d="M15 24 Q19 27 23 24" fill="none" stroke="currentColor" stroke-width="1.8"/>'
+    // body
+    + '<line x1="19" y1="29" x2="19" y2="42" stroke="currentColor" stroke-width="2.2"/>'
+    // arms
+    + '<line x1="8" y1="34" x2="30" y2="34" stroke="currentColor" stroke-width="2.2"/>'
+    // legs
+    + '<line x1="19" y1="42" x2="12" y2="51" stroke="currentColor" stroke-width="2.2"/>'
+    + '<line x1="19" y1="42" x2="26" y2="51" stroke="currentColor" stroke-width="2.2"/>'
+    // skull on shirt (simplified)
+    + '<circle cx="19" cy="37" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>'
+    + '<line x1="17" y1="39" x2="16" y2="41" stroke="currentColor" stroke-width="1.2"/>'
+    + '<line x1="19" y1="40" x2="19" y2="41" stroke="currentColor" stroke-width="1.2"/>'
+    + '<line x1="21" y1="39" x2="22" y2="41" stroke="currentColor" stroke-width="1.2"/>'
+    + '</svg>';
+
   // ── Render helpers ────────────────────────────────────────────────
   function _tsItem(id, type, name, date, dotColor) {
     var dot = dotColor
       ? '<span class="ts-folder-dot" style="background:' + _esc(dotColor) + '"></span>'
       : '';
     return '<div class="ts-item" id="tsi-' + type + '-' + id + '">'
+      // Cowboy checkbox (check → reveal Recover button)
       + '<label class="ts-cowboy-label" title="Check to reveal Recover button">'
       + '<input type="checkbox" class="ts-cowboy-input" onchange="tsReveal(this,' + id + ',\'' + type + '\')">'
       + '<span class="ts-cowboy-box">' + TS_COWBOY + '</span>'
       + '</label>'
+      // Skull-shirt kid = permanent delete (plays video)
+      + '<button class="ts-sid-btn" title="Permanently delete — no recovery" onclick="sidDelete(' + id + ',\'' + type + '\')">'
+      + TS_SID
+      + '</button>'
+      // Item info
       + '<div class="ts-item-info">' + dot
       + '<span class="ts-item-name">' + _esc(name) + '</span>'
       + '<span class="ts-item-date">deleted ' + _trashDate(date) + '</span>'
       + '</div>'
+      // Pig+Rex recover button (hidden until cowboy is checked)
       + '<button class="ts-recover-btn" id="trb-' + type + '-' + id + '" style="display:none;"'
       + ' onclick="tsRecover(' + id + ',\'' + type + '\')">'
       + TS_PIG + TS_REX + '<span>Recover!</span>'
@@ -318,6 +380,18 @@
     if (n > 0 && badge) { badge.textContent = n; badge.style.display = 'flex'; }
   }).catch(function(){});
   </script>
+
+  <!-- ── Permanent-delete video popup ─────────────────────────────── -->
+  <div id="vid-overlay" class="vid-overlay" style="display:none;">
+    <video id="vid-player" class="vid-player" autoplay muted playsinline>
+      <source src="/resources/1666331258725097.webm" type="video/webm">
+    </video>
+    <div class="vid-continue-wrap">
+      <button class="vid-continue-btn" id="vid-continue-btn" onclick="vidConfirmDelete()">
+        Continue
+      </button>
+    </div>
+  </div>
 
   <!-- ── Debug log panel (press ` to toggle) ────────────────────── -->
   <div id="debug-panel">

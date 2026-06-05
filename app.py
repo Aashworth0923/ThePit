@@ -330,6 +330,40 @@ def trash_contents():
     return jsonify({"lists": lists, "folders": folders})
 
 
+@app.route("/resources/<path:filename>")
+def serve_resource(filename):
+    """Serve files from the resources/ folder (videos etc.)."""
+    resources_dir = os.path.join(os.environ.get("THEPIT_APP_DIR", "."), "resources")
+    return send_from_directory(resources_dir, filename)
+
+
+@app.route("/trash/delete-list/<int:list_id>", methods=["POST"])
+def trash_delete_list_permanent(list_id):
+    """Hard-delete a soft-deleted list and all its list_releases."""
+    conn = db.get_db()
+    try:
+        conn.execute("DELETE FROM list_releases WHERE list_id = ?", (list_id,))
+        conn.execute("DELETE FROM lists WHERE id = ? AND deleted_at IS NOT NULL", (list_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    print(f"[trash] permanently deleted list {list_id}", flush=True)
+    return jsonify({"ok": True})
+
+
+@app.route("/trash/delete-folder/<int:folder_id>", methods=["POST"])
+def trash_delete_folder_permanent(folder_id):
+    """Hard-delete a soft-deleted folder."""
+    conn = db.get_db()
+    try:
+        conn.execute("DELETE FROM folders WHERE id = ? AND deleted_at IS NOT NULL", (folder_id,))
+        conn.commit()
+    finally:
+        conn.close()
+    print(f"[trash] permanently deleted folder {folder_id}", flush=True)
+    return jsonify({"ok": True})
+
+
 @app.route("/trash/restore-list/<int:list_id>", methods=["POST"])
 def trash_restore_list(list_id):
     db.restore_list(list_id)

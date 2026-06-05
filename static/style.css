@@ -1558,12 +1558,12 @@ td { padding: 8px 12px; vertical-align: middle; }
   right: 22px;
   width: 54px;
   height: 54px;
+  z-index: 10000;  /* above debug panel (9999) */
   background: linear-gradient(180deg, #D2691E 0%, #8B4513 100%);
   border: 3px solid #A0522D;
   border-radius: 10px;
   box-shadow: 0 0 0 2px #FFD700, 0 6px 20px rgba(0,0,0,0.6);
   cursor: pointer;
-  z-index: 1000;
   font-size: 22px;
   display: flex;
   align-items: center;
@@ -1787,3 +1787,63 @@ td { padding: 8px 12px; vertical-align: middle; }
   transition: transform 0.12s, box-shadow 0.12s;
 }
 .ts-close-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(150,0,0,0.5); }
+
+/* ── Sid-like permanent delete button ──
+   Legally distinct: generic "skull-shirt destructive kid" stick figure.
+   Not Sid — no specific hair/face/shirt design from the IP. */
+.ts-sid-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 2px solid #444;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+  color: #666;
+  width: 46px;
+  height: 52px;
+}
+.ts-sid-btn:hover { border-color: #cc0000; background: rgba(200,0,0,0.08); color: #cc0000; }
+
+/* ── Video popup (permanent delete confirmation) ── */
+.vid-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 10002;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.vid-player {
+  max-width: 900px;
+  width: 90vw;
+  display: block;
+  border: none;
+  outline: none;
+}
+/* Continue button: intentionally too far down and not flush right */
+.vid-continue-wrap {
+  max-width: 900px;
+  width: 90vw;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 38px;          /* obviously too much — reads as "wrong" */
+  padding-right: 46px;        /* not flush — floats inward, looks off */
+}
+.vid-continue-btn {
+  background: #555;
+  color: #ddd;
+  border: none;
+  border-radius: 4px;
+  padding: 9px 22px;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.vid-continue-btn:hover { background: #666; }
