@@ -1825,12 +1825,10 @@ td { padding: 8px 12px; vertical-align: middle; }
   background: rgba(0, 0, 0, 0.65) !important;
 }
 .vid-popup {
-  background: #e2e2e2;
-  border-radius: 14px;
-  padding: 20px 20px 0 20px;
+  background: transparent;
+  padding: 0;
   max-width: 860px;
   width: 90vw;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
 }
 .vid-player {
   width: 100%;
