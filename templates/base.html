@@ -218,7 +218,14 @@
     _vidDeleteId   = id;
     _vidDeleteType = type;
     var vid = document.getElementById('vid-player');
-    if (vid) { vid.currentTime = 0; vid.play(); }
+    if (vid) {
+      vid.currentTime = 0;
+      // Sync volume from slider
+      var sl = document.getElementById('vid-vol-slider');
+      if (sl) vid.volume = parseFloat(sl.value);
+      var p = vid.play();
+      if (p && p.catch) p.catch(function(e) { console.warn('[video] play error:', e.message); });
+    }
     document.getElementById('vid-overlay').style.display = 'flex';
   }
 
@@ -226,17 +233,37 @@
     document.getElementById('vid-overlay').style.display = 'none';
     var vid = document.getElementById('vid-player');
     if (vid) vid.pause();
-    if (!_vidDeleteId) return;
-    fetch('/trash/delete-' + _vidDeleteType + '/' + _vidDeleteId, { method: 'POST' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d.ok) {
-          var item = document.getElementById('tsi-' + _vidDeleteType + '-' + _vidDeleteId);
-          if (item) { item.style.transition='opacity 0.4s'; item.style.opacity='0'; setTimeout(function(){ item.remove(); },420); }
+    if (!_vidDeleteId) { console.warn('[trash] no pending delete'); return; }
+
+    var id   = _vidDeleteId;
+    var type = _vidDeleteType;
+    _vidDeleteId = null; _vidDeleteType = null;  // clear before async so double-click is safe
+
+    var url = '/trash/delete-' + type + '/' + id;
+    console.log('[trash] permanent delete ->', url);
+
+    fetch(url, { method: 'POST' })
+      .then(function(r) {
+        console.log('[trash] response status:', r.status);
+        if (!r.ok) {
+          return r.text().then(function(t) {
+            throw new Error('HTTP ' + r.status + ' — ' + t.slice(0, 150));
+          });
         }
-        _vidDeleteId = null; _vidDeleteType = null;
+        return r.json();
       })
-      .catch(function(e) { console.error('[trash] perm-delete error:', e); });
+      .then(function(d) {
+        if (d && d.ok) {
+          var item = document.getElementById('tsi-' + type + '-' + id);
+          if (item) {
+            item.style.transition = 'opacity 0.4s';
+            item.style.opacity    = '0';
+            setTimeout(function() { item.remove(); }, 420);
+          }
+          console.log('[trash] permanently deleted', type, id);
+        }
+      })
+      .catch(function(e) { console.error('[trash] perm-delete error:', e.message || String(e)); });
   }
 
   // ── SVG artwork (legally distinct from Toy Story IP) ─────────────
@@ -383,11 +410,18 @@
 
   <!-- ── Permanent-delete video popup ─────────────────────────────── -->
   <div id="vid-overlay" class="vid-overlay" style="display:none;">
-    <video id="vid-player" class="vid-player" autoplay muted playsinline>
+    <video id="vid-player" class="vid-player" playsinline>
       <source src="/resources/1666331258725097.webm" type="video/webm">
     </video>
+    <!-- Volume slider: bottom-left of the video area -->
+    <div class="vid-vol-row">
+      🔊
+      <input type="range" id="vid-vol-slider" class="vid-vol-slider"
+             min="0" max="1" step="0.05" value="1"
+             oninput="document.getElementById('vid-player').volume=parseFloat(this.value)">
+    </div>
     <div class="vid-continue-wrap">
-      <button class="vid-continue-btn" id="vid-continue-btn" onclick="vidConfirmDelete()">
+      <button class="vid-continue-btn" onclick="vidConfirmDelete()">
         Continue
       </button>
     </div>
