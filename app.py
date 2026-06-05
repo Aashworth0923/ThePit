@@ -345,21 +345,6 @@ def serve_resource(filename):
     return resp
 
 
-@app.route("/resources/open/<path:filename>", methods=["POST"])
-def open_resource_external(filename):
-    """Open a resource file with the system's default application (e.g. VLC)."""
-    full_path = os.path.join(_resources_dir(), filename)
-    if not os.path.exists(full_path):
-        print(f"[video] file not found: {full_path}", flush=True)
-        return jsonify({"error": "File not found", "path": full_path}), 404
-    try:
-        import subprocess
-        subprocess.Popen(["cmd", "/c", "start", "", full_path], shell=False)
-        print(f"[video] opened externally: {full_path}", flush=True)
-        return jsonify({"ok": True})
-    except Exception as e:
-        print(f"[video] open error: {e}", flush=True)
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/trash/delete-list/<int:list_id>", methods=["POST"])

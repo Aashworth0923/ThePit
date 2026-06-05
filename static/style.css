@@ -1819,15 +1819,28 @@ td { padding: 8px 12px; vertical-align: middle; }
   align-items: center;
   justify-content: center;
 }
-/* "Watch in VLC" message box (replaces embedded video player) */
-.vid-ext-box {
-  max-width: 520px;
-  text-align: center;
-  padding: 48px 40px;
+/* ── Embedded video popup — light grey, consistent with other app popups ── */
+.vid-overlay {
+  /* Override: use semi-transparent dark rather than solid black */
+  background: rgba(0, 0, 0, 0.65) !important;
 }
-.vid-ext-icon  { font-size: 64px; margin-bottom: 18px; }
-.vid-ext-title { font-size: 20px; font-weight: 600; color: #ccc; margin-bottom: 12px; }
-.vid-ext-sub   { font-size: 14px; color: #666; line-height: 1.6; }
+.vid-popup {
+  background: #e2e2e2;
+  border-radius: 14px;
+  padding: 20px 20px 0 20px;
+  max-width: 860px;
+  width: 90vw;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+}
+.vid-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  border-radius: 6px;
+  background: #111;
+  outline: none;
+  /* controls hidden — JS toggles them on mouseenter/leave */
+}
 
 /* Continue button: intentionally too far down and not flush right */
 .vid-continue-wrap {

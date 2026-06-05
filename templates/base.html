@@ -214,25 +214,56 @@
   var _vidDeleteId   = null;
   var _vidDeleteType = null;
 
+  var _vidBlobUrl = null;
+
   function sidDelete(id, type) {
     _vidDeleteId   = id;
     _vidDeleteType = type;
-
-    // Ask the server to open the file with the system default player (VLC etc.)
-    fetch('/resources/open/1666331258725097.webm', { method: 'POST' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d.ok) console.log('[video] opened externally OK');
-        else console.warn('[video] open failed:', d.error, d.path);
-      })
-      .catch(function(e) { console.warn('[video] open error:', e.message); });
-
-    // Show overlay with "watch then click Continue" message
     document.getElementById('vid-overlay').style.display = 'flex';
+
+    var vid = document.getElementById('vid-player');
+    if (!vid) return;
+
+    // Controls hidden at rest, appear on hover
+    vid.controls = false;
+    vid.addEventListener('mouseenter', function() { vid.controls = true;  });
+    vid.addEventListener('mouseleave', function() { vid.controls = false; });
+
+    function _play(url) {
+      vid.src = url;
+      vid.currentTime = 0;
+      vid.play().catch(function(e) {
+        // NotAllowedError = autoplay blocked; hover over video to see controls and click play
+        console.warn('[video] play (' + e.name + '):', e.message);
+        vid.controls = true; // reveal controls so user can click play manually
+      });
+    }
+
+    if (_vidBlobUrl) { _play(_vidBlobUrl); return; }
+
+    // Fetch as raw blob — bypasses Edge WebView2 <source> MIME-type rejection.
+    // Path is resolved server-side by _resources_dir() which handles dev (C:\) and prod (A:\).
+    fetch('/resources/1666331258725097.webm')
+      .then(function(r) {
+        console.log('[video] fetch', r.status, r.headers.get('Content-Type'));
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob();
+      })
+      .then(function(blob) {
+        console.log('[video] blob', blob.size, blob.type);
+        _vidBlobUrl = URL.createObjectURL(blob);
+        _play(_vidBlobUrl);
+      })
+      .catch(function(e) {
+        console.error('[video] load error:', e.message);
+        vid.controls = true; // let user try native controls as fallback
+      });
   }
 
   function vidConfirmDelete() {
     document.getElementById('vid-overlay').style.display = 'none';
+    var vid = document.getElementById('vid-player');
+    if (vid) { try { vid.pause(); } catch(e) {} vid.controls = false; }
     if (!_vidDeleteId) { console.warn('[trash] no pending delete'); return; }
 
     var id   = _vidDeleteId;
@@ -410,15 +441,12 @@
 
   <!-- ── Permanent-delete video popup ─────────────────────────────── -->
   <div id="vid-overlay" class="vid-overlay" style="display:none;">
-    <div class="vid-ext-box">
-      <div class="vid-ext-icon">🎬</div>
-      <div class="vid-ext-title">Video opening in your media player…</div>
-      <div class="vid-ext-sub">Watch it. When you're ready to delete forever, click Continue.</div>
-    </div>
-    <div class="vid-continue-wrap">
-      <button class="vid-continue-btn" onclick="vidConfirmDelete()">
-        Continue
-      </button>
+    <div class="vid-popup">
+      <video id="vid-player" class="vid-player" playsinline preload="auto"></video>
+      <!-- Continue: intentionally too far below + not flush right -->
+      <div class="vid-continue-wrap">
+        <button class="vid-continue-btn" onclick="vidConfirmDelete()">Continue</button>
+      </div>
     </div>
   </div>
 
