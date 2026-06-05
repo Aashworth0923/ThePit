@@ -332,9 +332,15 @@ def trash_contents():
 
 @app.route("/resources/<path:filename>")
 def serve_resource(filename):
-    """Serve files from the resources/ folder (videos etc.)."""
+    """Serve files from the resources/ folder with streaming headers so
+    Edge WebView2 can seek and buffer video without re-downloading."""
     resources_dir = os.path.join(os.environ.get("THEPIT_APP_DIR", "."), "resources")
-    return send_from_directory(resources_dir, filename)
+    resp = send_from_directory(resources_dir, filename)
+    if filename.lower().endswith((".webm", ".mp4", ".mov", ".avi")):
+        resp.headers["Accept-Ranges"]  = "bytes"
+        resp.headers["Cache-Control"]  = "public, max-age=86400"
+        resp.headers["Content-Type"]   = "video/webm" if filename.lower().endswith(".webm") else resp.headers.get("Content-Type", "video/mp4")
+    return resp
 
 
 @app.route("/trash/delete-list/<int:list_id>", methods=["POST"])

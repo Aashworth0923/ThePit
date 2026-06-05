@@ -217,22 +217,43 @@
   function sidDelete(id, type) {
     _vidDeleteId   = id;
     _vidDeleteType = type;
-    var vid = document.getElementById('vid-player');
-    if (vid) {
-      vid.currentTime = 0;
-      // Sync volume from slider
-      var sl = document.getElementById('vid-vol-slider');
-      if (sl) vid.volume = parseFloat(sl.value);
-      var p = vid.play();
-      if (p && p.catch) p.catch(function(e) { console.warn('[video] play error:', e.message); });
-    }
+    // Show overlay first so the element is visible before play()
     document.getElementById('vid-overlay').style.display = 'flex';
+
+    var vid = document.getElementById('vid-player');
+    if (!vid) return;
+
+    var sl = document.getElementById('vid-vol-slider');
+    if (sl) vid.volume = parseFloat(sl.value);
+    vid.currentTime = 0;
+
+    // Wait one frame for WebView2 to render the overlay, then play.
+    // readyState check: 0=NOTHING 1=METADATA 2=CURRENT 3=FUTURE 4=ENOUGH
+    function _doPlay() {
+      if (vid.readyState >= 2) {
+        vid.play().catch(function(e) {
+          console.warn('[video] play failed (' + e.name + '):', e.message);
+        });
+      } else {
+        vid.addEventListener('canplay', function once() {
+          vid.removeEventListener('canplay', once);
+          vid.play().catch(function(e) {
+            console.warn('[video] deferred play failed:', e.message);
+          });
+        });
+        vid.load(); // force metadata fetch if not already loaded
+      }
+    }
+    setTimeout(_doPlay, 80); // let WebView2 finish compositing the overlay
   }
 
   function vidConfirmDelete() {
     document.getElementById('vid-overlay').style.display = 'none';
     var vid = document.getElementById('vid-player');
-    if (vid) vid.pause();
+    // Don't call pause() here — just hiding the overlay is enough.
+    // Calling pause() while play() Promise is pending causes the
+    // "play interrupted by pause" DOMException in the debug log.
+    if (vid) { try { vid.pause(); } catch(e) {} }
     if (!_vidDeleteId) { console.warn('[trash] no pending delete'); return; }
 
     var id   = _vidDeleteId;
@@ -410,8 +431,15 @@
 
   <!-- ── Permanent-delete video popup ─────────────────────────────── -->
   <div id="vid-overlay" class="vid-overlay" style="display:none;">
-    <video id="vid-player" class="vid-player" playsinline>
-      <source src="/resources/1666331258725097.webm" type="video/webm">
+    <!-- Explicit codec hints help Edge WebView2 select the right decoder.
+         VP9+Opus is tried first, VP8+Vorbis as fallback. -->
+    <video id="vid-player" class="vid-player" playsinline preload="auto">
+      <source src="/resources/1666331258725097.webm"
+              type='video/webm; codecs="vp9, opus"'>
+      <source src="/resources/1666331258725097.webm"
+              type='video/webm; codecs="vp8, vorbis"'>
+      <source src="/resources/1666331258725097.webm"
+              type="video/webm">
     </video>
     <!-- Volume slider: bottom-left of the video area -->
     <div class="vid-vol-row">
