@@ -227,24 +227,14 @@
     if (sl) vid.volume = parseFloat(sl.value);
     vid.currentTime = 0;
 
-    // Wait one frame for WebView2 to render the overlay, then play.
-    // readyState check: 0=NOTHING 1=METADATA 2=CURRENT 3=FUTURE 4=ENOUGH
-    function _doPlay() {
-      if (vid.readyState >= 2) {
-        vid.play().catch(function(e) {
-          console.warn('[video] play failed (' + e.name + '):', e.message);
-        });
-      } else {
-        vid.addEventListener('canplay', function once() {
-          vid.removeEventListener('canplay', once);
-          vid.play().catch(function(e) {
-            console.warn('[video] deferred play failed:', e.message);
-          });
-        });
-        vid.load(); // force metadata fetch if not already loaded
-      }
-    }
-    setTimeout(_doPlay, 80); // let WebView2 finish compositing the overlay
+    // Call play() immediately while still inside the user-gesture handler.
+    // setTimeout would break the autoplay gesture whitelist in Chromium.
+    console.log('[video] readyState:', vid.readyState, 'networkState:', vid.networkState);
+    vid.play().catch(function(e) {
+      // NotAllowedError = autoplay blocked; user can click the native controls
+      // AbortError = interrupted by pause (harmless)
+      console.warn('[video] play result (' + e.name + '):', e.message);
+    });
   }
 
   function vidConfirmDelete() {
@@ -431,11 +421,8 @@
 
   <!-- ── Permanent-delete video popup ─────────────────────────────── -->
   <div id="vid-overlay" class="vid-overlay" style="display:none;">
-    <!-- Explicit codec hints help Edge WebView2 select the right decoder.
-         VP9+Opus is tried first, VP8+Vorbis as fallback. -->
-    <video id="vid-player" class="vid-player" playsinline preload="auto">
-      <source src="/resources/1666331258725097.webm"
-              type='video/webm; codecs="vp9, opus"'>
+    <!-- VP8+Vorbis WebM. controls shown so user can click play if autoplay is blocked. -->
+    <video id="vid-player" class="vid-player" playsinline preload="auto" controls>
       <source src="/resources/1666331258725097.webm"
               type='video/webm; codecs="vp8, vorbis"'>
       <source src="/resources/1666331258725097.webm"
