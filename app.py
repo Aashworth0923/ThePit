@@ -266,9 +266,60 @@ def folders_new():
 
 @app.route("/folders/<int:folder_id>/delete", methods=["POST"])
 def folders_delete_route(folder_id):
+    # Legacy form-based route — kept for safety, redirects to AJAX endpoint behaviour
+    db.unassign_lists_from_folder(folder_id)
     db.delete_folder(folder_id)
     flash("Folder deleted — lists moved back to unassigned.", "success")
     return redirect(url_for("folders"))
+
+
+@app.route("/folders/<int:folder_id>/delete-confirm", methods=["POST"])
+def folders_delete_confirm(folder_id):
+    """
+    AJAX endpoint used by the kawaii delete modal.
+    Body: {"delete_lists": true|false}
+      true  → soft-delete all lists in the folder, write backup JSON
+      false → unassign lists (move to unassigned), keep them
+    Always deletes the folder itself.
+    """
+    data         = request.get_json(silent=True) or {}
+    delete_lists = bool(data.get("delete_lists", False))
+
+    folder = db.get_folder_by_id(folder_id)
+    if not folder:
+        return jsonify({"error": "Folder not found"}), 404
+
+    if delete_lists:
+        deleted = db.soft_delete_lists_in_folder(folder_id)
+        _write_deleted_lists_backup(deleted)
+        print(f"[folder-del] soft-deleted {len(deleted)} lists from folder {folder_id}", flush=True)
+    else:
+        db.unassign_lists_from_folder(folder_id)
+        print(f"[folder-del] unassigned lists from folder {folder_id}", flush=True)
+
+    db.delete_folder(folder_id)
+    return jsonify({"ok": True})
+
+
+def _write_deleted_lists_backup(deleted_dicts):
+    """Append newly soft-deleted lists to deleted_lists.json, keeping last 5."""
+    if not deleted_dicts:
+        return
+    import json
+    backup_path = os.path.join(os.environ.get("THEPIT_APP_DIR", "."), "deleted_lists.json")
+    try:
+        if os.path.exists(backup_path):
+            with open(backup_path, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+        else:
+            existing = []
+        existing.extend(deleted_dicts)
+        existing = existing[-5:]          # keep only the last 5
+        with open(backup_path, "w", encoding="utf-8") as f:
+            json.dump(existing, f, indent=2, ensure_ascii=False)
+        print(f"[folder-del] backup written to {backup_path}", flush=True)
+    except Exception as e:
+        print(f"[folder-del] backup error: {e}", flush=True)
 
 
 @app.route("/lists/<int:list_id>/assign", methods=["POST"])

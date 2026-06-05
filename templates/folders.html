@@ -79,10 +79,8 @@
         </td>
         <td style="color:var(--muted); text-align:center;">{{ f.list_count }}</td>
         <td style="text-align:right; padding-right:12px;">
-          <form method="POST" action="{{ url_for('folders_delete_route', folder_id=f.id) }}"
-                onsubmit="return confirm('Delete folder {{ f.name | e }}? Lists inside will move back to unassigned.')">
-            <button type="submit" class="btn-icon-danger" title="Delete folder">✕</button>
-          </form>
+          <button class="btn-icon-danger" title="Delete folder"
+                  onclick="openKawaiiModal({{ f.id }}, {{ f.name | tojson }}, {{ f.list_count }})">✕</button>
         </td>
       </tr>
       {% endfor %}
@@ -90,6 +88,117 @@
   </table>
 </div>
 {% endif %}
+
+<!-- ✿ Kawaii folder-delete modal ✿ — intentionally off-brand and over the top -->
+<div id="kawaii-overlay" class="kawaii-overlay" style="display:none;" onclick="if(event.target===this)closeKawaiiModal()">
+  <div class="kawaii-box">
+
+    <div class="kawaii-header">
+      ✿ Oh nooo! ✿
+    </div>
+
+    <div class="kawaii-body">
+      <div class="kawaii-sparkles">✨ 🌸 ✨ 🌸 ✨</div>
+      <p class="kawaii-question">
+        Deleting folder&nbsp;<strong id="k-folder-name">"…"</strong>!<br>
+        <span id="k-has-lists" style="display:none;">
+          It has <strong id="k-list-count">?</strong> list(s) inside~ 🎀
+        </span>
+      </p>
+      <p class="kawaii-sub">What should happen to the lists inside? UwU</p>
+      <p class="kawaii-hearts">♡ &nbsp; ♡ &nbsp; ♡</p>
+    </div>
+
+    <div class="kawaii-buttons">
+
+      <!-- YES: stick figure kneels sadly on hover (you're deleting them…) -->
+      <button class="kawaii-btn kawaii-yes" onclick="confirmFolderDelete(true)">
+        <div class="stick-wrap">
+
+          <!-- Standing (default) -->
+          <svg class="stick-svg stick-stand" viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="12" r="9" fill="none" stroke="#cc2200" stroke-width="2.5"/>
+            <circle cx="36" cy="11" r="1.8" fill="#cc2200"/>
+            <circle cx="44" cy="11" r="1.8" fill="#cc2200"/>
+            <path d="M36 16 Q40 19 44 16" fill="none" stroke="#cc2200" stroke-width="1.8"/>
+            <line x1="40" y1="21" x2="40" y2="55" stroke="#cc2200" stroke-width="2.5"/>
+            <line x1="20" y1="38" x2="60" y2="38" stroke="#cc2200" stroke-width="2.5"/>
+            <line x1="40" y1="55" x2="26" y2="80" stroke="#cc2200" stroke-width="2.5"/>
+            <line x1="40" y1="55" x2="54" y2="80" stroke="#cc2200" stroke-width="2.5"/>
+          </svg>
+
+          <!-- Kneeling/sad on hover -->
+          <svg class="stick-svg stick-kneel" viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="14" r="9" fill="none" stroke="#cc2200" stroke-width="2.5"/>
+            <!-- X eyes (distressed) -->
+            <line x1="34" y1="11" x2="38" y2="15" stroke="#cc2200" stroke-width="2"/>
+            <line x1="38" y1="11" x2="34" y2="15" stroke="#cc2200" stroke-width="2"/>
+            <line x1="42" y1="11" x2="46" y2="15" stroke="#cc2200" stroke-width="2"/>
+            <line x1="46" y1="11" x2="42" y2="15" stroke="#cc2200" stroke-width="2"/>
+            <!-- sad mouth -->
+            <path d="M36 20 Q40 17 44 20" fill="none" stroke="#cc2200" stroke-width="1.8"/>
+            <!-- tear -->
+            <ellipse cx="33" cy="22" rx="2" ry="3" fill="#99ccff"/>
+            <!-- body -->
+            <line x1="40" y1="23" x2="40" y2="50" stroke="#cc2200" stroke-width="2.5"/>
+            <!-- drooping arms -->
+            <line x1="40" y1="34" x2="22" y2="52" stroke="#cc2200" stroke-width="2.5"/>
+            <line x1="40" y1="34" x2="58" y2="52" stroke="#cc2200" stroke-width="2.5"/>
+            <!-- kneeling legs -->
+            <line x1="40" y1="50" x2="28" y2="66" stroke="#cc2200" stroke-width="2.5"/>
+            <line x1="28" y1="66" x2="18" y2="66" stroke="#cc2200" stroke-width="2.5"/>
+            <line x1="40" y1="50" x2="52" y2="66" stroke="#cc2200" stroke-width="2.5"/>
+            <line x1="52" y1="66" x2="62" y2="66" stroke="#cc2200" stroke-width="2.5"/>
+          </svg>
+        </div>
+        <span class="kawaii-btn-label">Yes!! Delete them! 🔥</span>
+      </button>
+
+      <!-- NO: stick figure jumps for joy on hover (they survive!) -->
+      <button class="kawaii-btn kawaii-no" onclick="confirmFolderDelete(false)">
+        <div class="stick-wrap">
+
+          <!-- Standing (default) -->
+          <svg class="stick-svg stick-stand" viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="12" r="9" fill="none" stroke="#006600" stroke-width="2.5"/>
+            <circle cx="36" cy="11" r="1.8" fill="#006600"/>
+            <circle cx="44" cy="11" r="1.8" fill="#006600"/>
+            <path d="M36 16 Q40 19 44 16" fill="none" stroke="#006600" stroke-width="1.8"/>
+            <line x1="40" y1="21" x2="40" y2="55" stroke="#006600" stroke-width="2.5"/>
+            <line x1="20" y1="38" x2="60" y2="38" stroke="#006600" stroke-width="2.5"/>
+            <line x1="40" y1="55" x2="26" y2="80" stroke="#006600" stroke-width="2.5"/>
+            <line x1="40" y1="55" x2="54" y2="80" stroke="#006600" stroke-width="2.5"/>
+          </svg>
+
+          <!-- Jumping for joy on hover -->
+          <svg class="stick-svg stick-jump" viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="40" cy="8" r="9" fill="none" stroke="#006600" stroke-width="2.5"/>
+            <!-- happy ^^ eyes -->
+            <path d="M33 7 Q36 4 39 7" fill="none" stroke="#006600" stroke-width="2"/>
+            <path d="M41 7 Q44 4 47 7" fill="none" stroke="#006600" stroke-width="2"/>
+            <!-- big grin -->
+            <path d="M33 12 Q40 17 47 12" fill="none" stroke="#006600" stroke-width="2"/>
+            <!-- body -->
+            <line x1="40" y1="17" x2="40" y2="50" stroke="#006600" stroke-width="2.5"/>
+            <!-- arms raised V -->
+            <line x1="40" y1="28" x2="16" y2="10" stroke="#006600" stroke-width="2.5"/>
+            <line x1="40" y1="28" x2="64" y2="10" stroke="#006600" stroke-width="2.5"/>
+            <!-- spread jumping legs -->
+            <line x1="40" y1="50" x2="22" y2="72" stroke="#006600" stroke-width="2.5"/>
+            <line x1="40" y1="50" x2="58" y2="72" stroke="#006600" stroke-width="2.5"/>
+            <!-- sparkles at hands -->
+            <text x="4"  y="14" fill="#009900" font-size="11" font-family="sans-serif">✦</text>
+            <text x="60" y="14" fill="#009900" font-size="11" font-family="sans-serif">✦</text>
+          </svg>
+        </div>
+        <span class="kawaii-btn-label">No! Keep them! ✨</span>
+      </button>
+
+    </div><!-- /kawaii-buttons -->
+
+    <button class="kawaii-cancel" onclick="closeKawaiiModal()">(´・ω・`) nevermind</button>
+  </div>
+</div>
 
 <script>
   function showNewFolderForm() {
@@ -115,6 +224,46 @@
     })
     .catch(function(e) { console.error('[folders] create error:', e); });
   }
+
+  // ── Kawaii delete modal ───────────────────────────────────────────────────────
+  var _kawaiiFolderId   = null;
+
+  function openKawaiiModal(folderId, folderName, listCount) {
+    _kawaiiFolderId = folderId;
+    document.getElementById('k-folder-name').textContent = '"' + folderName + '"';
+    var hasListsEl = document.getElementById('k-has-lists');
+    if (listCount > 0) {
+      document.getElementById('k-list-count').textContent = listCount;
+      hasListsEl.style.display = 'inline';
+    } else {
+      hasListsEl.style.display = 'none';
+    }
+    document.getElementById('kawaii-overlay').style.display = 'flex';
+  }
+
+  function closeKawaiiModal() {
+    document.getElementById('kawaii-overlay').style.display = 'none';
+    _kawaiiFolderId = null;
+  }
+
+  function confirmFolderDelete(deleteLists) {
+    if (!_kawaiiFolderId) return;
+    fetch('/folders/' + _kawaiiFolderId + '/delete-confirm', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ delete_lists: deleteLists }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) window.location.reload();
+      else console.error('[kawaii-delete] error:', data.error);
+    })
+    .catch(function(e) { console.error('[kawaii-delete] fetch error:', e); });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeKawaiiModal();
+  });
 
   // ── Async folder art loader ─────────────────────────────────────────────────
   function _loadFolderArt(folderId) {

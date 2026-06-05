@@ -1400,3 +1400,148 @@ td { padding: 8px 12px; vertical-align: middle; }
   50%       { opacity: 0.4; }
 }
 .pulse { animation: pulse 1.4s ease-in-out infinite; }
+
+/* ══════════════════════════════════════════════════════════════════
+   ✿ KAWAII FOLDER DELETE MODAL ✿
+   Intentionally jarring contrast to the dark metal theme.
+   Pink, cute, over the top — exactly as requested.
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes kawaii-bounce {
+  0%   { transform: scale(0.2) rotate(-8deg); opacity: 0; }
+  55%  { transform: scale(1.08) rotate(3deg); }
+  75%  { transform: scale(0.96) rotate(-1deg); }
+  100% { transform: scale(1)    rotate(0deg);  opacity: 1; }
+}
+
+.kawaii-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 20, 147, 0.18);
+  backdrop-filter: blur(5px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kawaii-box {
+  background: linear-gradient(150deg, #fff5f8 0%, #ffe0ee 100%);
+  border: 3px solid #ff69b4;
+  border-radius: 28px;
+  box-shadow: 0 0 0 8px rgba(255,182,193,0.35), 0 24px 64px rgba(255,20,147,0.45);
+  max-width: 460px;
+  width: 92%;
+  overflow: hidden;
+  animation: kawaii-bounce 0.52s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.kawaii-header {
+  background: linear-gradient(90deg, #ff69b4 0%, #ff1493 60%, #ff69b4 100%);
+  color: #fff;
+  text-align: center;
+  padding: 18px 24px;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+.kawaii-body {
+  padding: 18px 28px 6px;
+  text-align: center;
+}
+.kawaii-sparkles {
+  font-size: 20px;
+  letter-spacing: 4px;
+  margin-bottom: 10px;
+}
+.kawaii-question {
+  font-size: 16px;
+  font-weight: 700;
+  color: #880e4f;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.kawaii-sub {
+  font-size: 13px;
+  color: #c2185b;
+  margin-bottom: 4px;
+}
+.kawaii-hearts {
+  font-size: 22px;
+  color: #ff69b4;
+  letter-spacing: 10px;
+  margin-bottom: 14px;
+}
+
+/* ── Buttons ── */
+.kawaii-buttons {
+  display: flex;
+  gap: 14px;
+  padding: 0 24px 20px;
+  justify-content: center;
+}
+
+.kawaii-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 18px 12px;
+  border-radius: 18px;
+  border: 2.5px solid;
+  cursor: pointer;
+  transition: transform 0.18s, box-shadow 0.18s, background 0.18s;
+  min-width: 138px;
+  font-family: inherit;
+  background: none;
+}
+
+.kawaii-yes  { border-color: #ff4444; color: #cc0000; background: #fff4f4; }
+.kawaii-yes:hover {
+  background: #ffe0e0;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(255,68,68,0.35);
+}
+
+.kawaii-no   { border-color: #44bb44; color: #005500; background: #f2fff2; }
+.kawaii-no:hover {
+  background: #d8ffd8;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(68,187,68,0.35);
+}
+
+.kawaii-btn-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+/* ── Stick figure swap on hover ── */
+.stick-wrap        { position: relative; width: 70px; height: 76px; }
+.stick-svg         { position: absolute; top: 0; left: 0; width: 70px; height: 76px; }
+.stick-kneel,
+.stick-jump        { display: none; }
+
+.kawaii-yes:hover .stick-stand { display: none; }
+.kawaii-yes:hover .stick-kneel { display: block; }
+.kawaii-no:hover  .stick-stand { display: none; }
+.kawaii-no:hover  .stick-jump  { display: block; }
+
+/* ── Cancel link ── */
+.kawaii-cancel {
+  display: block;
+  margin: 0 auto 16px;
+  background: none;
+  border: none;
+  color: #c2185b;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.65;
+  letter-spacing: 0.3px;
+}
+.kawaii-cancel:hover { opacity: 1; text-decoration: underline; }

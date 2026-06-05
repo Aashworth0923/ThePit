@@ -62,11 +62,15 @@ def init_db():
             created_at  TEXT    DEFAULT (date('now'))
         )
     """)
-    # Safe migration: add folder_id to lists
-    try:
-        conn.execute("ALTER TABLE lists ADD COLUMN folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL")
-    except Exception:
-        pass
+    # Safe migrations on lists table
+    for col, defn in [
+        ("folder_id",  "INTEGER REFERENCES folders(id) ON DELETE SET NULL"),
+        ("deleted_at", "TEXT"),   # NULL = active  datetime = soft-deleted
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE lists ADD COLUMN {col} {defn}")
+        except Exception:
+            pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS list_releases (
             list_id    INTEGER NOT NULL REFERENCES lists(id)    ON DELETE CASCADE,
@@ -195,12 +199,12 @@ def get_all_lists():
             "SELECT l.*, COUNT(lr.release_id) AS release_count "
             "FROM lists l "
             "LEFT JOIN list_releases lr ON l.id = lr.list_id "
+            "WHERE l.deleted_at IS NULL "
             "GROUP BY l.id ORDER BY l.created_at DESC"
         ).fetchall()
     except Exception:
-        # list_releases table may not exist yet — return without count
         return conn.execute(
-            "SELECT *, 0 AS release_count FROM lists ORDER BY created_at DESC"
+            "SELECT *, 0 AS release_count FROM lists WHERE deleted_at IS NULL ORDER BY created_at DESC"
         ).fetchall()
     finally:
         conn.close()
@@ -296,6 +300,96 @@ def delete_list(list_id):
         conn.close()
 
 
+def soft_delete_list(list_id):
+    """Mark one list as deleted (deleted_at = now). Prune to keep ≤ 5 soft-deleted."""
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE lists SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL",
+            (list_id,)
+        )
+        # Keep only the 5 most-recently soft-deleted; hard-delete the rest
+        conn.execute("""
+            DELETE FROM lists
+            WHERE  deleted_at IS NOT NULL
+            AND    id NOT IN (
+                SELECT id FROM lists
+                WHERE  deleted_at IS NOT NULL
+                ORDER  BY deleted_at DESC
+                LIMIT  5
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def soft_delete_lists_in_folder(folder_id):
+    """Soft-delete all active lists in a folder."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT id, name, description, created_at FROM lists WHERE folder_id = ? AND deleted_at IS NULL",
+            (folder_id,)
+        ).fetchall()
+        if rows:
+            conn.execute("""
+                UPDATE lists SET deleted_at = datetime('now')
+                WHERE folder_id = ? AND deleted_at IS NULL
+            """, (folder_id,))
+            # Prune: keep ≤ 5 soft-deleted
+            conn.execute("""
+                DELETE FROM lists WHERE deleted_at IS NOT NULL
+                AND id NOT IN (
+                    SELECT id FROM lists WHERE deleted_at IS NOT NULL
+                    ORDER BY deleted_at DESC LIMIT 5
+                )
+            """)
+            conn.commit()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def unassign_lists_from_folder(folder_id):
+    """Move all lists in a folder back to unassigned (no soft delete)."""
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE lists SET folder_id = NULL WHERE folder_id = ? AND deleted_at IS NULL",
+            (folder_id,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_soft_deleted_lists():
+    """Return up to 5 most-recently soft-deleted lists for recovery display."""
+    conn = get_db()
+    try:
+        return conn.execute("""
+            SELECT id, name, description, created_at, deleted_at
+            FROM lists WHERE deleted_at IS NOT NULL
+            ORDER BY deleted_at DESC LIMIT 5
+        """).fetchall()
+    finally:
+        conn.close()
+
+
+def restore_list(list_id):
+    """Un-delete a soft-deleted list, moving it back to unassigned."""
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE lists SET deleted_at = NULL, folder_id = NULL WHERE id = ?",
+            (list_id,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ── Folders ────────────────────────────────────────────────────────────────────
 
 _FOLDER_COLORS = [
@@ -384,7 +478,7 @@ def get_unassigned_lists():
             SELECT l.*, COUNT(lr.release_id) AS release_count
             FROM lists l
             LEFT JOIN list_releases lr ON l.id = lr.list_id
-            WHERE l.folder_id IS NULL
+            WHERE l.folder_id IS NULL AND l.deleted_at IS NULL
             GROUP BY l.id ORDER BY l.created_at DESC
         """).fetchall()
     finally:
@@ -399,7 +493,7 @@ def get_lists_in_folder(folder_id):
             SELECT l.*, COUNT(lr.release_id) AS release_count
             FROM lists l
             LEFT JOIN list_releases lr ON l.id = lr.list_id
-            WHERE l.folder_id = ?
+            WHERE l.folder_id = ? AND l.deleted_at IS NULL
             GROUP BY l.id ORDER BY l.created_at DESC
         """, (folder_id,)).fetchall()
     finally:
