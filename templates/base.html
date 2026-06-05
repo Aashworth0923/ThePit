@@ -214,10 +214,12 @@
   var _vidDeleteId   = null;
   var _vidDeleteType = null;
 
+  // Cached blob URL so we only fetch once per session
+  var _vidBlobUrl = null;
+
   function sidDelete(id, type) {
     _vidDeleteId   = id;
     _vidDeleteType = type;
-    // Show overlay first so the element is visible before play()
     document.getElementById('vid-overlay').style.display = 'flex';
 
     var vid = document.getElementById('vid-player');
@@ -225,16 +227,39 @@
 
     var sl = document.getElementById('vid-vol-slider');
     if (sl) vid.volume = parseFloat(sl.value);
-    vid.currentTime = 0;
 
-    // Call play() immediately while still inside the user-gesture handler.
-    // setTimeout would break the autoplay gesture whitelist in Chromium.
-    console.log('[video] readyState:', vid.readyState, 'networkState:', vid.networkState);
-    vid.play().catch(function(e) {
-      // NotAllowedError = autoplay blocked; user can click the native controls
-      // AbortError = interrupted by pause (harmless)
-      console.warn('[video] play result (' + e.name + '):', e.message);
-    });
+    // Log codec support so we can see what WebView2 can actually decode
+    console.log('[video] canPlayType vp8+vorbis:',  vid.canPlayType('video/webm; codecs="vp8, vorbis"'));
+    console.log('[video] canPlayType vp9+opus:',    vid.canPlayType('video/webm; codecs="vp9, opus"'));
+    console.log('[video] canPlayType video/webm:',  vid.canPlayType('video/webm'));
+
+    function _playBlob(url) {
+      vid.src = url;
+      vid.currentTime = 0;
+      console.log('[video] src set to blob URL, readyState:', vid.readyState);
+      vid.play().catch(function(e) {
+        console.warn('[video] play (' + e.name + '):', e.message);
+      });
+    }
+
+    if (_vidBlobUrl) {
+      // Reuse cached blob URL — no refetch needed
+      _playBlob(_vidBlobUrl);
+    } else {
+      // Fetch the video as a raw blob — bypasses <source> MIME-type rejection
+      fetch('/resources/1666331258725097.webm')
+        .then(function(r) {
+          console.log('[video] fetch status:', r.status, 'type:', r.headers.get('Content-Type'));
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.blob();
+        })
+        .then(function(blob) {
+          console.log('[video] blob size:', blob.size, 'blob type:', blob.type);
+          _vidBlobUrl = URL.createObjectURL(blob);
+          _playBlob(_vidBlobUrl);
+        })
+        .catch(function(e) { console.error('[video] blob fetch error:', e.message); });
+    }
   }
 
   function vidConfirmDelete() {
@@ -421,13 +446,9 @@
 
   <!-- ── Permanent-delete video popup ─────────────────────────────── -->
   <div id="vid-overlay" class="vid-overlay" style="display:none;">
-    <!-- VP8+Vorbis WebM. controls shown so user can click play if autoplay is blocked. -->
-    <video id="vid-player" class="vid-player" playsinline preload="auto" controls>
-      <source src="/resources/1666331258725097.webm"
-              type='video/webm; codecs="vp8, vorbis"'>
-      <source src="/resources/1666331258725097.webm"
-              type="video/webm">
-    </video>
+    <!-- No <source> — src is assigned via blob URL in JS to bypass
+         Edge WebView2 MIME-type rejection (networkState 3 issue).      -->
+    <video id="vid-player" class="vid-player" playsinline controls></video>
     <!-- Volume slider: bottom-left of the video area -->
     <div class="vid-vol-row">
       🔊
