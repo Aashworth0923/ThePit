@@ -206,62 +206,109 @@
     if (!iso) return '';
     try { return new Date(iso).toLocaleDateString(); } catch(e) { return iso; }
   }
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── SVG artwork (legally distinct from Toy Story IP) ─────────────
+  // Cowboy stick figure: wide-brim hat + neckerchief + star badge.
+  // Not a reproduction of any specific character.
+  var TS_COWBOY = '<svg viewBox="0 0 40 54" width="26" height="35" xmlns="http://www.w3.org/2000/svg">'
+    + '<path d="M11 14 Q20 8 29 14 L27 19 Q20 22 13 19 Z" fill="currentColor"/>'           // hat crown
+    + '<rect x="6" y="18" width="28" height="3" rx="1.5" fill="currentColor"/>'             // hat brim
+    + '<circle cx="20" cy="27" r="7" fill="none" stroke="currentColor" stroke-width="2"/>'  // head
+    + '<path d="M13 33 L20 40 L27 33" fill="none" stroke="currentColor" stroke-width="1.8"/>' // neckerchief
+    + '<line x1="20" y1="34" x2="20" y2="45" stroke="currentColor" stroke-width="2"/>'     // body
+    + '<line x1="10" y1="38" x2="30" y2="38" stroke="currentColor" stroke-width="2"/>'     // arms
+    + '<line x1="20" y1="45" x2="13" y2="53" stroke="currentColor" stroke-width="2"/>'     // left leg
+    + '<line x1="20" y1="45" x2="27" y2="53" stroke="currentColor" stroke-width="2"/>'     // right leg
+    + '<text x="15" y="44" font-size="7" fill="currentColor" font-family="sans-serif">✦</text>'  // star badge
+    + '</svg>';
+
+  // Rotund pig: snout, ears, curly tail. No coin slot = not Hamm.
+  var TS_PIG = '<svg viewBox="0 0 34 30" width="26" height="22" xmlns="http://www.w3.org/2000/svg">'
+    + '<circle cx="17" cy="14" r="10" fill="none" stroke="currentColor" stroke-width="2.2"/>'  // body/head merged
+    + '<ellipse cx="17" cy="17" rx="5.5" ry="4" fill="none" stroke="currentColor" stroke-width="2"/>'  // big snout
+    + '<circle cx="15" cy="17" r="1.3" fill="currentColor"/>'                                   // nostril L
+    + '<circle cx="19" cy="17" r="1.3" fill="currentColor"/>'                                   // nostril R
+    + '<path d="M9 8 L6 2 L13 6 Z" fill="currentColor"/>'                                       // ear L
+    + '<path d="M25 8 L28 2 L21 6 Z" fill="currentColor"/>'                                     // ear R
+    + '<path d="M27 20 Q32 17 30 23 Q28 28 31 25" fill="none" stroke="currentColor" stroke-width="1.8"/>' // curly tail
+    + '</svg>';
+
+  // T-Rex: huge head, hilariously tiny arms, thick legs.
+  // Not Rex — Rex is friendly; this one has visible teeth.
+  var TS_REX = '<svg viewBox="0 0 38 30" width="28" height="22" xmlns="http://www.w3.org/2000/svg">'
+    + '<path d="M2 5 Q0 1 6 1 Q14 1 18 8 Q20 14 14 17 Q8 18 4 14 Z" fill="none" stroke="currentColor" stroke-width="2"/>' // big head
+    + '<circle cx="7" cy="8" r="2" fill="currentColor"/>'                                        // eye
+    + '<path d="M4 14 L6 12 L8 14 L10 12 L12 14" fill="none" stroke="currentColor" stroke-width="1.3"/>' // teeth
+    + '<path d="M14 16 Q18 14 24 16 Q28 18 26 23 Q24 27 20 26 Q14 26 14 22 Z" fill="none" stroke="currentColor" stroke-width="2"/>' // body
+    + '<path d="M22 14 L27 11 L26 14" fill="none" stroke="currentColor" stroke-width="2"/>'      // tiny arm
+    + '<line x1="18" y1="26" x2="15" y2="30" stroke="currentColor" stroke-width="2.5"/>'        // leg L
+    + '<line x1="24" y1="26" x2="27" y2="30" stroke="currentColor" stroke-width="2.5"/>'        // leg R
+    + '<path d="M26 22 Q33 19 31 24 Q29 29 33 26" fill="none" stroke="currentColor" stroke-width="2"/>' // tail
+    + '</svg>';
+
+  // ── Render helpers ────────────────────────────────────────────────
+  function _tsItem(id, type, name, date, dotColor) {
+    var dot = dotColor
+      ? '<span class="ts-folder-dot" style="background:' + _esc(dotColor) + '"></span>'
+      : '';
+    return '<div class="ts-item" id="tsi-' + type + '-' + id + '">'
+      + '<label class="ts-cowboy-label" title="Check to reveal Recover button">'
+      + '<input type="checkbox" class="ts-cowboy-input" onchange="tsReveal(this,' + id + ',\'' + type + '\')">'
+      + '<span class="ts-cowboy-box">' + TS_COWBOY + '</span>'
+      + '</label>'
+      + '<div class="ts-item-info">' + dot
+      + '<span class="ts-item-name">' + _esc(name) + '</span>'
+      + '<span class="ts-item-date">deleted ' + _trashDate(date) + '</span>'
+      + '</div>'
+      + '<button class="ts-recover-btn" id="trb-' + type + '-' + id + '" style="display:none;"'
+      + ' onclick="tsRecover(' + id + ',\'' + type + '\')">'
+      + TS_PIG + TS_REX + '<span>Recover!</span>'
+      + '</button>'
+      + '</div>';
+  }
 
   function _renderTrashLists(lists) {
-    var el    = document.getElementById('ts-lists');
+    var el = document.getElementById('ts-lists');
     var empty = document.getElementById('ts-lists-empty');
     if (!lists.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
-    el.innerHTML = lists.map(function(l) {
-      return '<div class="ts-item">'
-        + '<div class="ts-item-info">'
-        + '<span class="ts-item-name">' + _esc(l.name) + '</span>'
-        + '<span class="ts-item-date">deleted ' + _trashDate(l.deleted_at) + '</span>'
-        + '</div>'
-        + '<button class="ts-rescue-btn" onclick="rescueList(' + l.id + ', this)">Rescue! 🤠</button>'
-        + '</div>';
-    }).join('');
+    el.innerHTML = lists.map(function(l) { return _tsItem(l.id,'list',l.name,l.deleted_at,null); }).join('');
   }
 
   function _renderTrashFolders(folders) {
-    var el    = document.getElementById('ts-folders');
+    var el = document.getElementById('ts-folders');
     var empty = document.getElementById('ts-folders-empty');
     if (!folders.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
     empty.style.display = 'none';
-    el.innerHTML = folders.map(function(f) {
-      return '<div class="ts-item">'
-        + '<div class="ts-item-info">'
-        + '<span class="ts-folder-dot" style="background:' + _esc(f.color) + '"></span>'
-        + '<span class="ts-item-name">' + _esc(f.name) + '</span>'
-        + '<span class="ts-item-date">deleted ' + _trashDate(f.deleted_at) + '</span>'
-        + '</div>'
-        + '<button class="ts-rescue-btn" onclick="rescueFolder(' + f.id + ', this)">Rescue! 🚀</button>'
-        + '</div>';
-    }).join('');
+    el.innerHTML = folders.map(function(f) { return _tsItem(f.id,'folder',f.name,f.deleted_at,f.color); }).join('');
   }
 
-  function rescueList(id, btn) {
-    btn.disabled = true; btn.textContent = 'Saving…';
-    fetch('/trash/restore-list/' + id, { method: 'POST' })
+  // Check → show Recover button; uncheck → hide it
+  function tsReveal(cb, id, type) {
+    var btn = document.getElementById('trb-' + type + '-' + id);
+    if (btn) btn.style.display = cb.checked ? 'flex' : 'none';
+  }
+
+  function tsRecover(id, type) {
+    var btn = document.getElementById('trb-' + type + '-' + id);
+    var item = document.getElementById('tsi-' + type + '-' + id);
+    if (btn) { btn.disabled = true; }
+    fetch('/trash/restore-' + type + '/' + id, { method: 'POST' })
       .then(function(r) { return r.json(); })
       .then(function(d) {
-        if (d.ok) { btn.closest('.ts-item').style.opacity = '0.4'; btn.textContent = 'Saved! ⭐'; }
+        if (d.ok && item) {
+          item.style.transition = 'opacity 0.4s';
+          item.style.opacity = '0.35';
+          if (btn) btn.innerHTML = '⭐ Done!';
+        }
       })
-      .catch(function(e) { console.error('[trash] restore error:', e); btn.disabled = false; });
-  }
-
-  function rescueFolder(id, btn) {
-    btn.disabled = true; btn.textContent = 'Saving…';
-    fetch('/trash/restore-folder/' + id, { method: 'POST' })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        if (d.ok) { btn.closest('.ts-item').style.opacity = '0.4'; btn.textContent = 'Saved! ⭐'; }
-      })
-      .catch(function(e) { console.error('[trash] restore error:', e); btn.disabled = false; });
-  }
-
-  function _esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      .catch(function(e) {
+        console.error('[trash] restore error:', e);
+        if (btn) btn.disabled = false;
+      });
   }
 
   // Show badge if trash has items

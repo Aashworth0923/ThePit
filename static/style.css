@@ -1714,23 +1714,57 @@ td { padding: 8px 12px; vertical-align: middle; }
 .ts-item-date  { font-size: 11px; color: #666; }
 .ts-folder-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: middle; flex-shrink: 0; }
 
-/* Rescue button — Woody yellow */
-.ts-rescue-btn {
-  background: linear-gradient(180deg, #FFD700 0%, #FFA500 100%);
-  border: 2px solid #CC8400;
-  border-radius: 8px;
-  color: #4B2800;
-  font-weight: 800;
-  font-size: 12px;
-  padding: 7px 14px;
+/* ── Cowboy stick-figure checkbox ── */
+/* Wide-brim hat + neckerchief + star badge. Generic cowboy, not a specific IP character. */
+.ts-cowboy-label { cursor: pointer; flex-shrink: 0; }
+.ts-cowboy-input { display: none; }
+.ts-cowboy-box {
+  width: 44px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2.5px solid #D2691E;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.28);
+  transition: all 0.18s;
+  color: rgba(139,69,19,0.25);   /* faded = unchecked */
+}
+.ts-cowboy-label:hover .ts-cowboy-box {
+  border-color: #B8860B;
+  background: rgba(255,215,0,0.15);
+  color: rgba(139,69,19,0.5);
+}
+.ts-cowboy-input:checked + .ts-cowboy-box {
+  background: rgba(255,215,0,0.38);
+  border-color: #B8860B;
+  color: #6B3A10;
+  box-shadow: 0 0 0 2.5px rgba(255,215,0,0.4);
+}
+
+/* ── Recover button: pig + T-Rex SVGs ──
+   Purple (pig) → green (dino) gradient.
+   Legally distinct from Hamm and Rex — different proportions, no IP-specific details. */
+.ts-recover-btn {
+  display: none;                   /* JS shows this when checkbox is checked */
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(130deg, #7B3FA0 0%, #1A7A2A 100%);
+  border: 2.5px solid #5C2E80;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 900;
+  font-size: 11px;
+  padding: 7px 9px;
   cursor: pointer;
-  white-space: nowrap;
   font-family: inherit;
   transition: transform 0.12s, box-shadow 0.12s;
   flex-shrink: 0;
+  white-space: nowrap;
 }
-.ts-rescue-btn:hover { transform: scale(1.06); box-shadow: 0 4px 12px rgba(255,165,0,0.5); }
-.ts-rescue-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.ts-recover-btn span { margin-left: 2px; }
+.ts-recover-btn:hover {
+  transform: scale(1.07) translateY(-1px);
+  box-shadow: 0 6px 18px rgba(80,20,120,0.45);
+}
+.ts-recover-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 /* Footer */
 .toystory-footer {
