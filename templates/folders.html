@@ -79,8 +79,10 @@
         </td>
         <td style="color:var(--muted); text-align:center;">{{ f.list_count }}</td>
         <td style="text-align:right; padding-right:12px;">
-          <button class="btn-icon-danger" title="Delete folder"
-                  onclick="openKawaiiModal({{ f.id }}, {{ f.name | tojson }}, {{ f.list_count }})">✕</button>
+          <button class="btn-icon-danger kawaii-del-btn" title="Delete folder"
+                  data-folder-id="{{ f.id }}"
+                  data-folder-name="{{ f.name | e }}"
+                  data-list-count="{{ f.list_count }}">✕</button>
         </td>
       </tr>
       {% endfor %}
@@ -226,7 +228,18 @@
   }
 
   // ── Kawaii delete modal ───────────────────────────────────────────────────────
-  var _kawaiiFolderId   = null;
+  var _kawaiiFolderId = null;
+
+  // Use event delegation so folder name with special chars never breaks HTML
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.kawaii-del-btn');
+    if (!btn) return;
+    openKawaiiModal(
+      parseInt(btn.dataset.folderId),
+      btn.dataset.folderName,
+      parseInt(btn.dataset.listCount || '0')
+    );
+  });
 
   function openKawaiiModal(folderId, folderName, listCount) {
     _kawaiiFolderId = folderId;
