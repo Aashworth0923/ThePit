@@ -141,6 +141,137 @@
     {% block content %}{% endblock %}
   </main>
 
+  <!-- ── 🗑️ Toy Story Recycling Bin ────────────────────────────────── -->
+  <button class="trash-float-btn" id="trash-btn" onclick="openTrash()" title="Andy's Recycling Bin — last 5 deleted items">
+    🗑️
+    <span class="trash-badge" id="trash-badge" style="display:none;">0</span>
+  </button>
+
+  <div id="toystory-overlay" class="toystory-overlay" style="display:none;" onclick="if(event.target===this)closeTrash()">
+    <div class="toystory-box">
+
+      <div class="toystory-header">
+        <div class="ts-clouds"></div>
+        <div class="ts-title">🤠 ANDY'S RECYCLING BIN 🤠</div>
+        <div class="ts-subtitle">"You've got a friend in me!"</div>
+      </div>
+
+      <div class="toystory-body">
+
+        <div class="ts-section">
+          <div class="ts-section-label">🗂️ Lists</div>
+          <div id="ts-lists-empty" class="ts-empty" style="display:none;">No deleted lists! Yee-haw! 🌟</div>
+          <div id="ts-lists"></div>
+        </div>
+
+        <div class="ts-divider">✦ ✦ ✦</div>
+
+        <div class="ts-section">
+          <div class="ts-section-label">📁 Folders</div>
+          <div id="ts-folders-empty" class="ts-empty" style="display:none;">No deleted folders! To infinity and beyond! 🚀</div>
+          <div id="ts-folders"></div>
+        </div>
+
+      </div>
+
+      <div class="toystory-footer">
+        <button class="ts-close-btn" onclick="closeTrash()">Close the toy box</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  // ── Toy Story Recycling Bin ──────────────────────────────────────
+  function openTrash() {
+    fetch('/trash')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        _renderTrashLists(data.lists || []);
+        _renderTrashFolders(data.folders || []);
+        document.getElementById('toystory-overlay').style.display = 'flex';
+      })
+      .catch(function(e) { console.error('[trash] fetch error:', e); });
+  }
+
+  function closeTrash() {
+    document.getElementById('toystory-overlay').style.display = 'none';
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeTrash();
+  });
+
+  function _trashDate(iso) {
+    if (!iso) return '';
+    try { return new Date(iso).toLocaleDateString(); } catch(e) { return iso; }
+  }
+
+  function _renderTrashLists(lists) {
+    var el    = document.getElementById('ts-lists');
+    var empty = document.getElementById('ts-lists-empty');
+    if (!lists.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    el.innerHTML = lists.map(function(l) {
+      return '<div class="ts-item">'
+        + '<div class="ts-item-info">'
+        + '<span class="ts-item-name">' + _esc(l.name) + '</span>'
+        + '<span class="ts-item-date">deleted ' + _trashDate(l.deleted_at) + '</span>'
+        + '</div>'
+        + '<button class="ts-rescue-btn" onclick="rescueList(' + l.id + ', this)">Rescue! 🤠</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  function _renderTrashFolders(folders) {
+    var el    = document.getElementById('ts-folders');
+    var empty = document.getElementById('ts-folders-empty');
+    if (!folders.length) { el.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+    el.innerHTML = folders.map(function(f) {
+      return '<div class="ts-item">'
+        + '<div class="ts-item-info">'
+        + '<span class="ts-folder-dot" style="background:' + _esc(f.color) + '"></span>'
+        + '<span class="ts-item-name">' + _esc(f.name) + '</span>'
+        + '<span class="ts-item-date">deleted ' + _trashDate(f.deleted_at) + '</span>'
+        + '</div>'
+        + '<button class="ts-rescue-btn" onclick="rescueFolder(' + f.id + ', this)">Rescue! 🚀</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  function rescueList(id, btn) {
+    btn.disabled = true; btn.textContent = 'Saving…';
+    fetch('/trash/restore-list/' + id, { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) { btn.closest('.ts-item').style.opacity = '0.4'; btn.textContent = 'Saved! ⭐'; }
+      })
+      .catch(function(e) { console.error('[trash] restore error:', e); btn.disabled = false; });
+  }
+
+  function rescueFolder(id, btn) {
+    btn.disabled = true; btn.textContent = 'Saving…';
+    fetch('/trash/restore-folder/' + id, { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.ok) { btn.closest('.ts-item').style.opacity = '0.4'; btn.textContent = 'Saved! ⭐'; }
+      })
+      .catch(function(e) { console.error('[trash] restore error:', e); btn.disabled = false; });
+  }
+
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Show badge if trash has items
+  fetch('/trash').then(function(r){return r.json();}).then(function(d){
+    var n = (d.lists||[]).length + (d.folders||[]).length;
+    var badge = document.getElementById('trash-badge');
+    if (n > 0 && badge) { badge.textContent = n; badge.style.display = 'flex'; }
+  }).catch(function(){});
+  </script>
+
   <!-- ── Debug log panel (press ` to toggle) ────────────────────── -->
   <div id="debug-panel">
     <div id="debug-panel-bar">

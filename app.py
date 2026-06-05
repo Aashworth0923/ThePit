@@ -297,7 +297,7 @@ def folders_delete_confirm(folder_id):
         db.unassign_lists_from_folder(folder_id)
         print(f"[folder-del] unassigned lists from folder {folder_id}", flush=True)
 
-    db.delete_folder(folder_id)
+    db.soft_delete_folder(folder_id)
     return jsonify({"ok": True})
 
 
@@ -320,6 +320,28 @@ def _write_deleted_lists_backup(deleted_dicts):
         print(f"[folder-del] backup written to {backup_path}", flush=True)
     except Exception as e:
         print(f"[folder-del] backup error: {e}", flush=True)
+
+
+@app.route("/trash")
+def trash_contents():
+    """Return the last 5 soft-deleted lists and folders as JSON."""
+    lists   = [dict(r) for r in db.get_soft_deleted_lists()]
+    folders = [dict(r) for r in db.get_soft_deleted_folders()]
+    return jsonify({"lists": lists, "folders": folders})
+
+
+@app.route("/trash/restore-list/<int:list_id>", methods=["POST"])
+def trash_restore_list(list_id):
+    db.restore_list(list_id)
+    print(f"[trash] restored list {list_id}", flush=True)
+    return jsonify({"ok": True})
+
+
+@app.route("/trash/restore-folder/<int:folder_id>", methods=["POST"])
+def trash_restore_folder(folder_id):
+    db.restore_folder(folder_id)
+    print(f"[trash] restored folder {folder_id}", flush=True)
+    return jsonify({"ok": True})
 
 
 @app.route("/lists/<int:list_id>/assign", methods=["POST"])

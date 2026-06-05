@@ -54,6 +54,10 @@ def init_db():
             created_at TEXT    DEFAULT (date('now'))
         )
     """)
+    try:
+        conn.execute("ALTER TABLE folders ADD COLUMN deleted_at TEXT")
+    except Exception:
+        pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS lists (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -404,7 +408,8 @@ def get_all_folders():
         return conn.execute("""
             SELECT f.*, COUNT(l.id) AS list_count
             FROM folders f
-            LEFT JOIN lists l ON l.folder_id = f.id
+            LEFT JOIN lists l ON l.folder_id = f.id AND l.deleted_at IS NULL
+            WHERE f.deleted_at IS NULL
             GROUP BY f.id
             ORDER BY f.created_at ASC
         """).fetchall()
@@ -460,11 +465,60 @@ def create_folder(name):
 
 
 def delete_folder(folder_id):
-    """Delete a folder; its lists become unassigned (folder_id = NULL)."""
+    """Hard-delete a folder (legacy). Prefer soft_delete_folder for normal use."""
     conn = get_db()
     try:
         conn.execute("UPDATE lists SET folder_id = NULL WHERE folder_id = ?", (folder_id,))
         conn.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def soft_delete_folder(folder_id):
+    """Soft-delete a folder. Prune to keep ≤ 5 soft-deleted folders."""
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE folders SET deleted_at = datetime('now') WHERE id = ? AND deleted_at IS NULL",
+            (folder_id,)
+        )
+        conn.execute("""
+            DELETE FROM folders
+            WHERE  deleted_at IS NOT NULL
+            AND    id NOT IN (
+                SELECT id FROM folders
+                WHERE  deleted_at IS NOT NULL
+                ORDER  BY deleted_at DESC
+                LIMIT  5
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_soft_deleted_folders():
+    """Return up to 5 most-recently soft-deleted folders."""
+    conn = get_db()
+    try:
+        return conn.execute("""
+            SELECT id, name, color, created_at, deleted_at
+            FROM folders WHERE deleted_at IS NOT NULL
+            ORDER BY deleted_at DESC LIMIT 5
+        """).fetchall()
+    finally:
+        conn.close()
+
+
+def restore_folder(folder_id):
+    """Un-delete a soft-deleted folder (lists stay unassigned — not returned to folder)."""
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE folders SET deleted_at = NULL WHERE id = ?",
+            (folder_id,)
+        )
         conn.commit()
     finally:
         conn.close()
