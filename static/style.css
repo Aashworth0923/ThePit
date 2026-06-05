@@ -1819,36 +1819,15 @@ td { padding: 8px 12px; vertical-align: middle; }
   align-items: center;
   justify-content: center;
 }
-.vid-player {
-  max-width: 900px;
-  width: 90vw;
-  aspect-ratio: 16 / 9;   /* ensures non-zero height before metadata loads */
-  max-height: 70vh;
-  display: block;
-  border: none;
-  outline: none;
-  background: #111;
-  /* Force its own compositing layer so video frames aren't hidden behind bg */
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+/* "Watch in VLC" message box (replaces embedded video player) */
+.vid-ext-box {
+  max-width: 520px;
+  text-align: center;
+  padding: 48px 40px;
 }
-
-/* Volume row: sits just below the video, left-aligned */
-.vid-vol-row {
-  max-width: 900px;
-  width: 90vw;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-top: 10px;
-  font-size: 16px;
-}
-.vid-vol-slider {
-  flex: 1;
-  max-width: 200px;
-  cursor: pointer;
-  accent-color: #888;
-}
+.vid-ext-icon  { font-size: 64px; margin-bottom: 18px; }
+.vid-ext-title { font-size: 20px; font-weight: 600; color: #ccc; margin-bottom: 12px; }
+.vid-ext-sub   { font-size: 14px; color: #666; line-height: 1.6; }
 
 /* Continue button: intentionally too far down and not flush right */
 .vid-continue-wrap {

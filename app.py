@@ -330,17 +330,36 @@ def trash_contents():
     return jsonify({"lists": lists, "folders": folders})
 
 
+def _resources_dir():
+    """Absolute path to the resources/ folder — always relative to app.py, not cwd."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+
+
 @app.route("/resources/<path:filename>")
 def serve_resource(filename):
-    """Serve files from the resources/ folder with streaming headers so
-    Edge WebView2 can seek and buffer video without re-downloading."""
-    resources_dir = os.path.join(os.environ.get("THEPIT_APP_DIR", "."), "resources")
-    resp = send_from_directory(resources_dir, filename)
+    """Serve files from the resources/ folder."""
+    resp = send_from_directory(_resources_dir(), filename)
     if filename.lower().endswith((".webm", ".mp4", ".mov", ".avi")):
-        resp.headers["Accept-Ranges"]  = "bytes"
-        resp.headers["Cache-Control"]  = "public, max-age=86400"
-        resp.headers["Content-Type"]   = "video/webm" if filename.lower().endswith(".webm") else resp.headers.get("Content-Type", "video/mp4")
+        resp.headers["Accept-Ranges"] = "bytes"
+        resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
+
+
+@app.route("/resources/open/<path:filename>", methods=["POST"])
+def open_resource_external(filename):
+    """Open a resource file with the system's default application (e.g. VLC)."""
+    full_path = os.path.join(_resources_dir(), filename)
+    if not os.path.exists(full_path):
+        print(f"[video] file not found: {full_path}", flush=True)
+        return jsonify({"error": "File not found", "path": full_path}), 404
+    try:
+        import subprocess
+        subprocess.Popen(["cmd", "/c", "start", "", full_path], shell=False)
+        print(f"[video] opened externally: {full_path}", flush=True)
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"[video] open error: {e}", flush=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/trash/delete-list/<int:list_id>", methods=["POST"])
