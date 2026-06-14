@@ -130,6 +130,46 @@ def get_mb_studio_album_count(artist):
         return None
 
 
+def explain_hype(listeners, playcount, discog_count, score, tier):
+    """
+    Return a list of human-readable lines breaking down how a stored
+    hype score was computed, for display as a tooltip.
+    """
+    pop_score = 0.0
+    if listeners and listeners > 0:
+        pop_score = max(0.0, min(50.0, (math.log10(listeners + 1) - 2.5) * 20))
+
+    engagement_score = 0.0
+    if listeners and playcount and listeners > 0:
+        engagement_score = max(0.0, min(10.0, (playcount / listeners - 8) * 1.0))
+
+    discog_score = 0.0
+    if discog_count:
+        discog_score = min(30.0, discog_count * 6.0)
+
+    lines = []
+    if listeners is not None:
+        lines.append(f"Popularity: {listeners:,} Last.fm listeners → {pop_score:.0f}/50 pts")
+    else:
+        lines.append("Popularity: no Last.fm data → 0/50 pts")
+
+    if listeners and playcount:
+        ratio = playcount / listeners
+        lines.append(f"Engagement: {ratio:.1f} plays per listener → {engagement_score:.0f}/10 pts")
+    else:
+        lines.append("Engagement: no playcount data → 0/10 pts")
+
+    if discog_count is not None:
+        lines.append(f"Discography: {discog_count} studio album(s) → {discog_score:.0f}/30 pts")
+    else:
+        lines.append("Discography: no MusicBrainz match → 0/30 pts")
+
+    if score is not None:
+        lines.append(f"Total: {score:.0f}/100 → {tier.replace('_', ' ').title() if tier else '?'}")
+
+    return lines
+
+
 def _score_to_tier(score):
     for threshold, tier in TIERS:
         if score < threshold:

@@ -1865,18 +1865,29 @@ td { padding: 8px 12px; vertical-align: middle; }
 /* ── Hype scale badges ── */
 .hype-badge {
   display: inline-block;
+  position: relative;
   padding: 1px 8px;
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
   border: 1px solid transparent;
+  cursor: help;
 }
 .hype-frozen    { color: #8ec9ff; background: rgba(50, 110, 200, 0.18);  border-color: rgba(140, 190, 255, 0.35); }
 .hype-iced      { color: #9be8e0; background: rgba(40, 160, 150, 0.16);  border-color: rgba(155, 232, 224, 0.35); }
 .hype-room-temp { color: #bbb;    background: rgba(150, 150, 150, 0.14); border-color: rgba(180, 180, 180, 0.30); }
 .hype-hot       { color: #ffb37a; background: rgba(220, 110, 30, 0.18);  border-color: rgba(255, 179, 122, 0.35); }
 .hype-fire      { color: #ff8a8a; background: rgba(220, 40, 30, 0.20);   border-color: rgba(255, 138, 138, 0.40); }
+
+/* ── Hype rating breakdown (in review panel) ── */
+.rr-hype { align-items: flex-start; }
+.rr-hype .rr-label { display: flex; align-items: center; gap: 8px; }
+.rr-hype-explain {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
 
 /* ── Hype scan progress bar ── */
 .hype-progress {

@@ -59,7 +59,15 @@ def _worker(list_id, job, releases):
                 playcount=result["playcount"],
                 discog_count=result["discog_count"],
             )
-            job["results"][release_id] = {"tier": result["tier"], "score": result["score"]}
+            explain = hype_scraper.explain_hype(
+                result["listeners"], result["playcount"], result["discog_count"],
+                result["score"], result["tier"],
+            )
+            job["results"][release_id] = {
+                "tier": result["tier"],
+                "score": result["score"],
+                "explain": explain,
+            }
         except Exception as e:
             print(f"[hype-job] list {list_id}: error scanning {artist!r}: {e}", flush=True)
 

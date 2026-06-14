@@ -534,14 +534,58 @@
     if (!item) return;
     if (item.dataset.hypeTier === info.tier) return; // already applied
     item.dataset.hypeTier = info.tier;
+
     var row2 = item.querySelector('.ri-row2');
-    if (!row2) return;
-    var existing = row2.querySelector('.hype-badge');
-    if (existing) existing.remove();
-    var badge = document.createElement('span');
-    badge.className = 'hype-badge hype-' + info.tier.replace(/_/g, '-');
-    badge.textContent = HYPE_LABELS[info.tier] || info.tier;
-    row2.appendChild(badge);
+    if (row2) {
+      var existing = row2.querySelector('.hype-badge');
+      if (existing) {
+        existing.remove();
+      } else {
+        var dot = document.createElement('span');
+        dot.className = 'ri-dot';
+        dot.textContent = '·';
+        row2.appendChild(dot);
+      }
+      var badge = document.createElement('span');
+      badge.className = 'hype-badge hype-' + info.tier.replace(/_/g, '-');
+      badge.textContent = HYPE_LABELS[info.tier] || info.tier;
+      row2.appendChild(badge);
+    }
+
+    // Insert/update the hype rating breakdown in the review panel
+    var review = document.getElementById('review-' + releaseId);
+    if (review && info.explain && info.explain.length) {
+      var block = document.getElementById('hype-explain-' + releaseId);
+      if (!block) {
+        block = document.createElement('div');
+        block.className = 'rr-question rr-hype';
+        block.id = 'hype-explain-' + releaseId;
+        var divider = document.createElement('div');
+        divider.className = 'rr-divider';
+        review.insertBefore(divider, review.firstChild);
+        review.insertBefore(block, divider);
+      }
+
+      var label = document.createElement('div');
+      label.className = 'rr-label';
+      label.appendChild(document.createTextNode('Hype Rating — '));
+      var badgeCopy = document.createElement('span');
+      badgeCopy.className = 'hype-badge hype-' + info.tier.replace(/_/g, '-');
+      badgeCopy.textContent = HYPE_LABELS[info.tier] || info.tier;
+      label.appendChild(badgeCopy);
+
+      var explainEl = document.createElement('div');
+      explainEl.className = 'rr-hype-explain';
+      explainEl.innerHTML = info.explain.map(function(line) {
+        var div = document.createElement('div');
+        div.textContent = line;
+        return div.innerHTML;
+      }).join('<br>');
+
+      block.innerHTML = '';
+      block.appendChild(label);
+      block.appendChild(explainEl);
+    }
   }
 
   // Resume polling if a scan was already running when this page loaded

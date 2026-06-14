@@ -89,6 +89,25 @@
   {# ── Review sub-panel ── #}
   <div class="ri-review" id="review-{{ r.id }}" style="display:none;">
 
+    {% if r.hype_tier %}
+    <div class="rr-question rr-hype" id="hype-explain-{{ r.id }}">
+      <div class="rr-label">
+        Hype Rating —
+        <span class="hype-badge hype-{{ r.hype_tier | replace('_', '-') }}">
+          {%- if r.hype_tier == 'frozen' %}❄ Frozen
+          {%- elif r.hype_tier == 'iced' %}🧊 Iced
+          {%- elif r.hype_tier == 'room_temp' %}◻ Room Temp
+          {%- elif r.hype_tier == 'hot' %}🔥 Hot
+          {%- elif r.hype_tier == 'fire' %}🔥🔥 Fire
+          {%- endif %}
+        </span>
+      </div>
+      <div class="rr-hype-explain">{{ r | hype_explain }}</div>
+    </div>
+
+    <div class="rr-divider"></div>
+    {% endif %}
+
     <div class="rr-question">
       <div class="rr-label">Play Length</div>
       <div class="rr-icons">

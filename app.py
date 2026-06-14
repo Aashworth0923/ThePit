@@ -14,6 +14,7 @@ from flask import Flask, render_template, redirect, url_for, request, flash, sen
 import db
 import metadata
 import hype_jobs
+import hype_scraper
 
 # ── Server-side log capture ───────────────────────────────────────────────────
 # All print() calls anywhere in the app are captured here and exposed
@@ -96,6 +97,17 @@ def fmt_date(value):
 def primary_genres_filter(genre_str):
     """Return space-separated top-level genre slugs for a raw genre string."""
     return _map_primary_genres(genre_str)
+
+
+@app.template_filter("hype_explain")
+def hype_explain_filter(r):
+    """Render the hype score breakdown for a release row as <br>-joined HTML."""
+    from markupsafe import Markup, escape
+    lines = hype_scraper.explain_hype(
+        r["hype_listeners"], r["hype_playcount"], r["hype_discog_count"],
+        r["hype_score"], r["hype_tier"],
+    )
+    return Markup("<br>".join(escape(line) for line in lines))
 
 
 # ── Art image proxy ──────────────────────────────────────────────────────────

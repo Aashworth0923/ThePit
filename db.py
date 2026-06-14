@@ -247,7 +247,8 @@ def get_list_releases(list_id):
     try:
         return conn.execute("""
             SELECT r.id, r.artist, r.album, r.type, r.genre, r.release_date,
-                   r.hype_tier, r.hype_score,
+                   r.hype_tier, r.hype_score, r.hype_listeners, r.hype_playcount,
+                   r.hype_discog_count, r.hype_checked_at,
                    lr.listen_status, lr.rating, lr.thoughts,
                    COALESCE(lr.completed, 0) AS completed,
                    COALESCE(lr.starred,   0) AS starred,
