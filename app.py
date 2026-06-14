@@ -562,7 +562,14 @@ def _scrape_subprocess(date_from, date_to):
     env.setdefault("PLAYWRIGHT_BROWSERS_PATH", os.path.join(app_dir, "browsers"))
     env["PYTHONIOENCODING"] = "utf-8"
 
-    cmd = [sys.executable, script,
+    if getattr(sys, "frozen", False):
+        # sys.executable is ThePit.exe itself when frozen — use the venv's
+        # python so we run fetch_releases.py instead of relaunching the app.
+        python_exe = os.path.join(app_dir, "venv", "Scripts", "python.exe")
+    else:
+        python_exe = sys.executable
+
+    cmd = [python_exe, script,
            "--from", date_from, "--to", date_to, "--out", out_path]
     print(f"[scraper] starting subprocess: {' '.join(cmd)}", flush=True)
     print(f"[scraper] PLAYWRIGHT_BROWSERS_PATH={env['PLAYWRIGHT_BROWSERS_PATH']}", flush=True)
