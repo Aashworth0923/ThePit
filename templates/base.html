@@ -128,6 +128,7 @@
       <a href="{{ url_for('releases') }}" class="nav-tab {% if request.endpoint == 'releases' %}active{% endif %}">Releases</a>
       <a href="{{ url_for('lists') }}"    class="nav-tab {% if request.endpoint in ('lists', 'list_detail')    %}active{% endif %}">Lists</a>
       <a href="{{ url_for('folders') }}"  class="nav-tab {% if request.endpoint in ('folders', 'folders_delete_route') %}active{% endif %}">Folders</a>
+      <a href="{{ url_for('jobs') }}"     class="nav-tab {% if request.endpoint == 'jobs' %}active{% endif %}">Jobs</a>
     </div>
   </header>
 

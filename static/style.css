@@ -1933,3 +1933,51 @@ td { padding: 8px 12px; vertical-align: middle; }
   gap: 8px;
 }
 .vid-continue-btn:hover { background: #666; }
+
+/* ── Batch Jobs tab ── */
+.jobs-table .job-row { cursor: pointer; }
+.job-status {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+.job-status-running { color: #ffb37a; background: rgba(220, 110, 30, 0.18); border-color: rgba(255, 179, 122, 0.35); }
+.job-status-done    { color: #9be8e0; background: rgba(40, 160, 150, 0.16); border-color: rgba(155, 232, 224, 0.35); }
+.job-status-error   { color: #ff8a8a; background: rgba(220, 40, 30, 0.20); border-color: rgba(255, 138, 138, 0.40); }
+
+.job-progress-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #2a2a2a;
+  overflow: hidden;
+  min-width: 100px;
+}
+.job-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.job-progress-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+.job-detail {
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-radius: 6px;
+}
+.job-log {
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  color: var(--text);
+}

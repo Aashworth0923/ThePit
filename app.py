@@ -15,6 +15,7 @@ import db
 import metadata
 import hype_jobs
 import hype_scraper
+import batch_jobs
 
 # ── Server-side log capture ───────────────────────────────────────────────────
 # All print() calls anywhere in the app are captured here and exposed
@@ -505,6 +506,24 @@ def hype_status(list_id):
     return jsonify(hype_jobs.get_status(list_id))
 
 
+@app.route("/jobs")
+def jobs():
+    return render_template("jobs.html", jobs=batch_jobs.get_all_jobs())
+
+
+@app.route("/api/jobs")
+def api_jobs():
+    return jsonify(batch_jobs.get_all_jobs())
+
+
+@app.route("/api/jobs/<int:job_id>")
+def api_job_detail(job_id):
+    job = batch_jobs.get_job(job_id)
+    if job is None:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(job)
+
+
 @app.route("/lists/<int:list_id>/add", methods=["POST"])
 def lists_add(list_id):
     data        = request.get_json(silent=True) or {}
@@ -592,8 +611,11 @@ def get_releases():
             return redirect(url_for("get_releases"))
 
         try:
-            fetched  = _scrape_subprocess(date_from, date_to)
-            inserted = db.insert_releases(fetched)
+            fetched = _scrape_subprocess(date_from, date_to)
+            inserted, release_ids = db.insert_releases(fetched)
+            batch_jobs.record_fetch_releases(date_from, date_to, len(fetched), inserted)
+            batch_jobs.start_fetch_art(release_ids)
+            batch_jobs.start_hype_scan(release_ids)
             flash(
                 f"Done — {inserted} new release(s) added "
                 f"({len(fetched)} fetched, {len(fetched) - inserted} already in DB).",

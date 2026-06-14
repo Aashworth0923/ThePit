@@ -626,29 +626,76 @@ def _extract_ma_id(album_url):
 def insert_releases(releases):
     """
     Insert a list of release dicts (from fetch_releases.py).
-    Returns the count of newly inserted rows.
+    Returns (inserted_count, release_ids) where release_ids covers every
+    release in the input (newly inserted or already present).
     """
     conn = get_db()
     inserted = 0
+    release_ids = []
     try:
         for r in releases:
             ma_id = _extract_ma_id(r.get("album_url", ""))
+            artist = r["artist"].strip()
+            album = r["album"].strip()
+            release_date = normalize_date(r.get("release_date", ""))
             cursor = conn.execute(
                 """INSERT OR IGNORE INTO releases
                    (artist, album, type, genre, release_date, ma_album_id)
                    VALUES (?, ?, ?, ?, ?, ?)""",
                 (
-                    r["artist"].strip(),
-                    r["album"].strip(),
+                    artist,
+                    album,
                     r.get("type", "").strip(),
                     r.get("genre", "").strip(),
-                    normalize_date(r.get("release_date", "")),
+                    release_date,
                     ma_id,
                 ),
             )
             if cursor.rowcount == 1:
                 inserted += 1
+                release_ids.append(cursor.lastrowid)
+            else:
+                row = conn.execute(
+                    "SELECT id FROM releases WHERE artist = ? AND album = ? AND release_date = ?",
+                    (artist, album, release_date),
+                ).fetchone()
+                if row:
+                    release_ids.append(row["id"])
         conn.commit()
     finally:
         conn.close()
-    return inserted
+    return inserted, release_ids
+
+
+def get_releases_missing_art(release_ids):
+    """Given a list of release ids, return those that have never had art fetched."""
+    if not release_ids:
+        return []
+    conn = get_db()
+    try:
+        placeholders = ",".join("?" * len(release_ids))
+        rows = conn.execute(
+            f"""SELECT id, artist, album, ma_album_id FROM releases
+                WHERE id IN ({placeholders}) AND art_url IS NULL""",
+            release_ids,
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def get_releases_missing_hype(release_ids):
+    """Given a list of release ids, return those that have no hype score yet."""
+    if not release_ids:
+        return []
+    conn = get_db()
+    try:
+        placeholders = ",".join("?" * len(release_ids))
+        rows = conn.execute(
+            f"""SELECT id, artist FROM releases
+                WHERE id IN ({placeholders}) AND hype_tier IS NULL""",
+            release_ids,
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()

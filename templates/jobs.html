@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Batch Jobs — The Pit{% endblock %}
+
+{% block content %}
+
+{% macro render_job_row(job) %}
+<tr class="job-row" data-job-id="{{ job.id }}" onclick="toggleJobDetail({{ job.id }})">
+  <td>{{ job.type }}</td>
+  <td>{{ job.label }}</td>
+  <td><span class="job-status job-status-{{ job.status }}">{{ job.status }}</span></td>
+  <td>
+    <div class="job-progress-bar">
+      <div class="job-progress-fill" style="width: {{ (job.done / job.total * 100) if job.total else 100 }}%;"></div>
+    </div>
+    <span class="job-progress-label">{{ job.done }}/{{ job.total }}</span>
+  </td>
+  <td class="col-date">{{ job.created_at }}</td>
+</tr>
+<tr class="job-detail-row" id="job-detail-{{ job.id }}" style="display:none;">
+  <td colspan="5">
+    <div class="job-detail" id="job-detail-content-{{ job.id }}">Loading…</div>
+  </td>
+</tr>
+{% endmacro %}
+
+<div class="page-header">
+  <div>
+    <h1>Batch Jobs</h1>
+    <span class="count" id="jobs-count">{{ jobs|length }} job(s)</span>
+  </div>
+  <div class="page-actions">
+    <button class="btn-icon-muted" id="refresh-jobs" title="Refresh" onclick="refreshJobs()">↻</button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table class="jobs-table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Label</th>
+        <th>Status</th>
+        <th>Progress</th>
+        <th>Started</th>
+      </tr>
+    </thead>
+    <tbody id="jobs-tbody">
+      {% for job in jobs %}
+      {{ render_job_row(job) }}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if not jobs %}
+<p class="empty-state">No batch jobs yet — fetch some releases to get started.</p>
+{% endif %}
+
+<script>
+function jobRowHtml(job) {
+  const pct = job.total ? (job.done / job.total * 100) : 100;
+  return `
+    <tr class="job-row" data-job-id="${job.id}" onclick="toggleJobDetail(${job.id})">
+      <td>${job.type}</td>
+      <td>${job.label}</td>
+      <td><span class="job-status job-status-${job.status}">${job.status}</span></td>
+      <td>
+        <div class="job-progress-bar">
+          <div class="job-progress-fill" style="width: ${pct}%;"></div>
+        </div>
+        <span class="job-progress-label">${job.done}/${job.total}</span>
+      </td>
+      <td class="col-date">${job.created_at}</td>
+    </tr>
+    <tr class="job-detail-row" id="job-detail-${job.id}" style="display:none;">
+      <td colspan="5">
+        <div class="job-detail" id="job-detail-content-${job.id}">Loading…</div>
+      </td>
+    </tr>
+  `;
+}
+
+function refreshJobs() {
+  fetch('/api/jobs')
+    .then(r => r.json())
+    .then(jobs => {
+      const tbody = document.getElementById('jobs-tbody');
+      tbody.innerHTML = jobs.map(jobRowHtml).join('');
+      document.getElementById('jobs-count').textContent = jobs.length + ' job(s)';
+    });
+}
+
+function toggleJobDetail(jobId) {
+  const row = document.getElementById('job-detail-' + jobId);
+  if (!row) return;
+  if (row.style.display !== 'none') {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = '';
+  const content = document.getElementById('job-detail-content-' + jobId);
+  content.textContent = 'Loading…';
+  fetch('/api/jobs/' + jobId)
+    .then(r => r.json())
+    .then(job => {
+      if (job.error) {
+        content.textContent = job.error;
+        return;
+      }
+      content.innerHTML = '<pre class="job-log">' + job.log.map(l => l.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))).join('\n') + '</pre>';
+    });
+}
+</script>
+{% endblock %}
