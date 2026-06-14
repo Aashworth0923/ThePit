@@ -26,30 +26,25 @@ A personal, local desktop app for tracking weekly metal music releases.
 
 ## Current State (as of 2026-06-14)
 
-### How to run — development (C:\)
+### How to run — A:\ThePit (primary, dev + prod)
 
-1. Open VS Code from `C:\Users\ashwo\OneDrive\Documents\GitHub\ThePit`
-2. Double-click **`dev.bat`** (or run it from the VS Code terminal) — runs `app.py` directly with the local venv's Python
-3. App opens at `http://127.0.0.1:5000` — runs against the local dev database
-4. Press backtick `` ` `` to open the debug log panel at any time
+`A:\ThePit` is now the single working copy: development and production both
+happen here.
 
-### How to run — production (A:\)
+1. Double-click **`ThePit.bat`** (or run it from a terminal) — runs `app.py`
+   directly with the local venv's Python, sets
+   `PLAYWRIGHT_BROWSERS_PATH=A:\ThePit\browsers`, and opens
+   `http://127.0.0.1:5000` in your default browser
+2. Press backtick `` ` `` to open the debug log panel at any time
+3. Edit code, test against the live app, then `git add`/`commit`/`push` from
+   `A:\ThePit` when ready
 
-Two ways to run the production copy, both at `A:\ThePit\`:
-
-- **`ThePit.exe`** — a PyInstaller-frozen build (no console window). Templates/static/Python code are bundled inside the exe; `metal_releases.db`, `.env`, `venv\`, `browsers\`, and `fetch_releases.py` stay external on disk. **This exe does NOT auto-update from source changes — it must be rebuilt** (see "Building the .exe" below) whenever `app.py`/templates/etc. change.
-- **`ThePit.bat`** / `launcher.py` (via Desktop shortcut, `pythonw.exe launcher.py`) — runs from live source, `git fetch`/`git pull`s from GitHub on every launch, then starts Flask + opens a native PyWebView window. Always reflects the latest pushed code.
-
-Either way, `PLAYWRIGHT_BROWSERS_PATH=A:\ThePit\browsers` must be set (handled automatically by both launch paths).
-
-### Building the .exe
-
-```
-cd A:\ThePit
-python -m PyInstaller ThePit.spec --clean --noconfirm
-copy /Y dist\ThePit.exe ThePit.exe
-```
-(`A:\ThePit\venv` does **not** have PyInstaller installed — use the system Python, which does. Close any running `ThePit.exe` first or the copy will fail with "Device or resource busy".)
+There is **no auto-update and no packaged `.exe`** — the previous
+`launcher.py` (git auto-pull + native PyWebView window) and PyInstaller
+build pipeline (`ThePit.exe`, `build.bat`, `ThePit.spec`,
+`create_shortcut.ps1`) have been removed. `dev.bat` remains for the
+secondary `C:\...\ThePit` dev checkout if needed, but `A:\ThePit` is the
+canonical copy going forward.
 
 ---
 
@@ -57,35 +52,32 @@ copy /Y dist\ThePit.exe ThePit.exe
 
 | Location | Contents |
 |---|---|
-| `A:\ThePit\` | All source code, database, templates, CSS, icon, resources, built exe |
-| `A:\ThePit\venv\` | Python virtual environment (Flask app deps — no PyInstaller) |
+| `A:\ThePit\` | All source code, database, templates, CSS, icon, resources |
+| `A:\ThePit\venv\` | Python virtual environment (Flask app deps) |
 | `A:\ThePit\browsers\` | Playwright Chromium (~300MB, required for scraper) |
 | `A:\ThePit\metal_releases.db` | The SQLite database — all your data |
-| `A:\ThePit\resources\` | Video files (`1666331258725097.webm` + `success recover/`) |
+| `A:\ThePit\resources\` | Video files (`1666331258725097.webm` + `success recover/`) — gitignored, source copies live at `A:\Personal Stuff General\The Æste✞ic and süræl\` |
 | `A:\ThePit\deleted_lists.json` | Backup of last 5 soft-deleted lists (written on delete) |
-| Desktop shortcut "The Pit" | Primary launcher via `create_shortcut.ps1` (live-source path) |
 
 ---
 
 ## Development Workflow
 
 ```
-C:\...\ThePit\  ← write code here (Claude Code / VS Code)
+A:\ThePit\  ← write code AND run the app here (primary copy)
       │  git add / commit / push
       ▼
 github.com/Aashworth0923/ThePit  ← version history
-      │  git pull (auto on launcher.py launch, or manual)
-      ▼
-A:\ThePit\  ← production (data + secrets live here permanently)
 ```
 
 **Session:**
-1. Edit in C:\, test with `dev.bat`
+1. Edit in `A:\ThePit`, test with `ThePit.bat` (or `python app.py`)
 2. `git add <files> && git commit -m "..." && git push` — **push must be run manually by the user** (a sandboxed/agent shell typically cannot complete GitHub auth — `git push` fails with an `/dev/tty` / "could not read Username" error)
-3. `launcher.py`/`ThePit.bat` auto-pulls on next open. **`ThePit.exe` does NOT auto-pull — rebuild it manually after pushing if you want the frozen build updated.**
-4. If A:\ThePit's working tree ever has uncommitted local edits that block a pull, diff them against recent dev commits first — they're often just an earlier manual sync that's already a subset of what's being pulled, in which case `git reset --hard origin/main` is safe.
 
-**.env keys** — stored in `C:\...\ThePit\.env` (dev) and `A:\ThePit\.env` (prod). Never committed. Currently used for `LASTFM_API_KEY` (hype scoring).
+`C:\...\ThePit` is a secondary checkout of the same GitHub repo; if it's used,
+sync it via normal git pull/push — it's no longer the primary location.
+
+**.env keys** — stored in `A:\ThePit\.env`. Never committed. Currently used for `LASTFM_API_KEY` (hype scoring).
 
 ---
 
@@ -101,12 +93,9 @@ ThePit\
 ├── hype_jobs.py                # Per-list "Scan Hype" job manager (pause/resume/cancel)
 ├── batch_jobs.py                # Auto-triggered batch jobs (art + hype) after Get Releases
 ├── import_releases.py          # One-shot .txt importer
-├── launcher.py                 # PyWebView native window + git auto-update (live source)
-├── dev.bat                      # Dev launcher (C:\, no VeraCrypt)
-├── ThePit.bat                   # Production launcher (live source, no auto-update)
-├── create_shortcut.ps1          # Creates Desktop shortcut (launcher.py path)
-├── build.bat / ThePit.spec      # PyInstaller pipeline → dist\ThePit.exe
-├── ThePit.exe                   # Frozen build (must be rebuilt manually — see above)
+├── batch_release.py             # Batch Release: Thursday-aligned week splitting
+├── dev.bat                      # Dev launcher (C:\ secondary checkout, no VeraCrypt)
+├── ThePit.bat                   # Standard launcher (A:\ThePit, live source)
 ├── ThePit.ico / ThePit.jpg       # App icon
 ├── AI-README.md                 # This file
 ├── .env / .env.example          # API keys (gitignored) — LASTFM_API_KEY
@@ -191,11 +180,7 @@ Schema changes are applied via `ALTER TABLE ... ADD COLUMN` inside `db.init_db()
 ## Key Architecture Notes
 
 ### Scraper (`fetch_releases.py` + `_scrape_subprocess`)
-Uses Playwright (headless Chromium) and **must run as a subprocess** — Playwright uses asyncio internally and `sync_playwright()` fails in a Flask worker thread (ProactorEventLoop restriction). `_scrape_subprocess()` in `app.py`:
-- In dev, runs `sys.executable fetch_releases.py --from ... --to ... --out <tmpfile>`.
-- In a **frozen build**, `sys.executable` is `ThePit.exe` itself (would just relaunch the whole app), so it instead calls `A:\ThePit\venv\Scripts\python.exe` explicitly.
-- Passes `creationflags=CREATE_NO_WINDOW` / `STARTF_USESHOWWINDOW` so no console window pops up when spawned from the windowed (`console=False`) frozen exe.
-- Output written to a temp JSON file (`--out`), last 20/10 lines of stdout/stderr forwarded into the `[scraper]` debug log.
+Uses Playwright (headless Chromium) and **must run as a subprocess** — Playwright uses asyncio internally and `sync_playwright()` fails in a Flask worker thread (ProactorEventLoop restriction). `_scrape_subprocess()` in `app.py` runs `sys.executable fetch_releases.py --from ... --to ... --out <tmpfile>`, with output written to a temp JSON file and the last 20/10 lines of stdout/stderr forwarded into the `[scraper]` debug log.
 
 ### Get Releases → Batch Jobs pipeline
 `POST /get-releases`:
@@ -271,7 +256,7 @@ Steam-style jewel-case effect:
 | 3b | List review UI (play/rate/notes, compact/full view) | ✅ Done |
 | 4 | Hype Scale scoring + review-panel breakdown | ✅ Done |
 | 4b | Automated batch jobs (art + hype) on Get Releases + Jobs tab | ✅ Done |
-| 5 | PyInstaller `.exe` build for taskbar pinning | ✅ Done (manual rebuild required) |
+| 4c | Batch Release wizard (month/week picker, genre/type filters) | ✅ Done |
 | 6 | Priority Flagging — auto-flag by label or genre | Planned |
 | 7 | Scraper Scheduling — weekly auto-fetch | Planned |
 | 8 | Home page content | Planned |
@@ -285,18 +270,14 @@ Steam-style jewel-case effect:
 - **Art coverage gaps:** some underground releases have no art in any of the 4 sources. Verified via debug panel; `art_url = ''` in DB means "checked, nothing found — don't retry."
 - **Scraper speed:** Playwright + Cloudflare bypass takes 30–60s per fetch and runs as a separate process. Progress visible in the debug panel via `[scraper]` log lines.
 - **Hype scoring coverage:** small/underground bands often return 0 listeners/playcount from Last.fm and no MusicBrainz match — they'll score `frozen` by default, which is expected (not a bug).
-- **`ThePit.exe` is not self-updating:** `launcher.py`/`ThePit.bat` auto-pull from GitHub, but the frozen `.exe` bundles its own copy of the code and must be rebuilt + copied over manually after any source change you want reflected in it.
-- **PyWebView video:** WebM playback in Edge WebView2 required blob URL approach (raw bytes bypasses MIME-type rejection). `_resources_dir()` must be correct for both environments.
 
 ---
 
 ## Dependencies
 
-App deps live in `A:\ThePit\venv` (and `C:\...\ThePit\venv` for dev). Key ones:
+App deps live in `A:\ThePit\venv` (and `C:\...\ThePit\venv` for the secondary checkout). Key ones:
 - `flask`, `playwright`, `beautifulsoup4`, `requests`, `cloudscraper`
-- `pywebview`, `python-dotenv`, `pillow`
-
-PyInstaller is **not** in either app venv — use the system Python (`python -m PyInstaller ...`) to build `ThePit.exe`.
+- `python-dotenv`, `pillow`
 
 Python 3.12. Playwright Chromium at `A:\ThePit\browsers\`.
 
