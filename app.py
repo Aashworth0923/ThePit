@@ -574,9 +574,19 @@ def _scrape_subprocess(date_from, date_to):
     print(f"[scraper] starting subprocess: {' '.join(cmd)}", flush=True)
     print(f"[scraper] PLAYWRIGHT_BROWSERS_PATH={env['PLAYWRIGHT_BROWSERS_PATH']}", flush=True)
 
+    # Suppress the console window that Windows otherwise pops up for a
+    # child process spawned from a windowed (no-console) frozen app.
+    creationflags = 0
+    startupinfo = None
+    if os.name == "nt":
+        creationflags = subprocess.CREATE_NO_WINDOW
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
     proc = subprocess.run(
         cmd, env=env, cwd=app_dir,
         capture_output=True, encoding="utf-8", timeout=300,
+        creationflags=creationflags, startupinfo=startupinfo,
     )
 
     # Forward subprocess output to our debug log
