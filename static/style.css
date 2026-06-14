@@ -1861,4 +1861,59 @@ td { padding: 8px 12px; vertical-align: middle; }
   font-family: inherit;
   transition: background 0.15s;
 }
+
+/* ── Hype scale badges ── */
+.hype-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.hype-frozen    { color: #8ec9ff; background: rgba(50, 110, 200, 0.18);  border-color: rgba(140, 190, 255, 0.35); }
+.hype-iced      { color: #9be8e0; background: rgba(40, 160, 150, 0.16);  border-color: rgba(155, 232, 224, 0.35); }
+.hype-room-temp { color: #bbb;    background: rgba(150, 150, 150, 0.14); border-color: rgba(180, 180, 180, 0.30); }
+.hype-hot       { color: #ffb37a; background: rgba(220, 110, 30, 0.18);  border-color: rgba(255, 179, 122, 0.35); }
+.hype-fire      { color: #ff8a8a; background: rgba(220, 40, 30, 0.20);   border-color: rgba(255, 138, 138, 0.40); }
+
+/* ── Hype scan progress bar ── */
+.hype-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+}
+.hype-progress-info {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+.hype-progress-artist {
+  color: var(--muted);
+  font-size: 12px;
+}
+.hype-progress-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #2a2a2a;
+  overflow: hidden;
+}
+.hype-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+.hype-progress-actions {
+  display: flex;
+  gap: 8px;
+}
 .vid-continue-btn:hover { background: #666; }

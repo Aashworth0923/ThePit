@@ -41,6 +41,12 @@ def init_db():
         ("ma_album_id", "TEXT"),
         ("art_url",     "TEXT"),   # NULL=never fetched  ''=fetched/not-found  URL=found
         ("bio_text",    "TEXT"),   # NULL or ''=none found  text=found
+        ("hype_tier",        "TEXT"),     # NULL=never scanned; frozen/iced/room_temp/hot/fire
+        ("hype_score",       "REAL"),
+        ("hype_listeners",   "INTEGER"),
+        ("hype_playcount",   "INTEGER"),
+        ("hype_discog_count","INTEGER"),
+        ("hype_checked_at",  "TEXT"),
     ]:
         try:
             conn.execute(f"ALTER TABLE releases ADD COLUMN {col} {defn}")
@@ -241,6 +247,7 @@ def get_list_releases(list_id):
     try:
         return conn.execute("""
             SELECT r.id, r.artist, r.album, r.type, r.genre, r.release_date,
+                   r.hype_tier, r.hype_score,
                    lr.listen_status, lr.rating, lr.thoughts,
                    COALESCE(lr.completed, 0) AS completed,
                    COALESCE(lr.starred,   0) AS starred,
@@ -252,6 +259,44 @@ def get_list_releases(list_id):
                      r.release_date ASC,
                      r.artist ASC
         """, (list_id,)).fetchall()
+    finally:
+        conn.close()
+
+
+def get_releases_for_hype_scan(list_id, force=False):
+    """Return (id, artist) rows for a list's releases.
+    If force is False, only releases that have never been hype-scanned."""
+    conn = get_db()
+    try:
+        sql = """
+            SELECT r.id, r.artist
+            FROM list_releases lr
+            JOIN releases r ON r.id = lr.release_id
+            WHERE lr.list_id = ?
+        """
+        if not force:
+            sql += " AND r.hype_tier IS NULL"
+        sql += " ORDER BY r.artist ASC"
+        return conn.execute(sql, (list_id,)).fetchall()
+    finally:
+        conn.close()
+
+
+def save_release_hype(release_id, score, tier, listeners, playcount, discog_count):
+    """Persist the result of a hype scan for a release."""
+    conn = get_db()
+    try:
+        conn.execute(
+            """UPDATE releases
+               SET hype_score = ?, hype_tier = ?, hype_listeners = ?,
+                   hype_playcount = ?, hype_discog_count = ?,
+                   hype_checked_at = datetime('now')
+               WHERE id = ?""",
+            (score, tier, listeners, playcount, discog_count, release_id),
+        )
+        conn.commit()
+        print(f"[db-hype] saved for id={release_id}: tier={tier} score={score:.1f} "
+              f"listeners={listeners} playcount={playcount} discog={discog_count}", flush=True)
     finally:
         conn.close()
 

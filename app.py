@@ -13,6 +13,7 @@ from collections import deque
 from flask import Flask, render_template, redirect, url_for, request, flash, send_from_directory, jsonify
 import db
 import metadata
+import hype_jobs
 
 # ── Server-side log capture ───────────────────────────────────────────────────
 # All print() calls anywhere in the app are captured here and exposed
@@ -463,6 +464,33 @@ def list_release_update(list_id, release_id):
         db.update_list_release(list_id, release_id, **updates)
         print(f"[list] updated release {release_id} in list {list_id}: {list(updates.keys())}", flush=True)
     return jsonify({"ok": True})
+
+
+@app.route("/lists/<int:list_id>/hype/start", methods=["POST"])
+def hype_start(list_id):
+    force = request.args.get("force", "").lower() in ("1", "true", "yes")
+    print(f"[hype-route] start requested for list {list_id} (force={force})", flush=True)
+    return jsonify(hype_jobs.start(list_id, force=force))
+
+
+@app.route("/lists/<int:list_id>/hype/pause", methods=["POST"])
+def hype_pause(list_id):
+    return jsonify(hype_jobs.pause(list_id))
+
+
+@app.route("/lists/<int:list_id>/hype/resume", methods=["POST"])
+def hype_resume(list_id):
+    return jsonify(hype_jobs.resume(list_id))
+
+
+@app.route("/lists/<int:list_id>/hype/cancel", methods=["POST"])
+def hype_cancel(list_id):
+    return jsonify(hype_jobs.cancel(list_id))
+
+
+@app.route("/lists/<int:list_id>/hype/status")
+def hype_status(list_id):
+    return jsonify(hype_jobs.get_status(list_id))
 
 
 @app.route("/lists/<int:list_id>/add", methods=["POST"])

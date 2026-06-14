@@ -10,7 +10,8 @@
      data-rating="{{ rating_val }}"
      data-thoughts="{{ r.thoughts or '' | e }}"
      data-completed="{{ '1' if is_done else '0' }}"
-     data-starred="{{ '1' if r.starred else '0' }}">
+     data-starred="{{ '1' if r.starred else '0' }}"
+     data-hype-tier="{{ r.hype_tier or '' }}">
 
   {# ── Main row ── #}
   <div class="ri-main" onclick="toggleReview('{{ r.id }}')">
@@ -60,6 +61,17 @@
         </span>
         {% else %}
         <span class="ri-review-summary"></span>
+        {% endif %}
+        {% if r.hype_tier %}
+        <span class="ri-dot">·</span>
+        <span class="hype-badge hype-{{ r.hype_tier | replace('_', '-') }}">
+          {%- if r.hype_tier == 'frozen' %}❄ Frozen
+          {%- elif r.hype_tier == 'iced' %}🧊 Iced
+          {%- elif r.hype_tier == 'room_temp' %}◻ Room Temp
+          {%- elif r.hype_tier == 'hot' %}🔥 Hot
+          {%- elif r.hype_tier == 'fire' %}🔥🔥 Fire
+          {%- endif %}
+        </span>
         {% endif %}
       </div>
       {# Description — shown in full view only, populated by JS #}

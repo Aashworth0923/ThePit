@@ -22,6 +22,10 @@
     </div>
   </div>
   <div class="page-actions">
+    <button class="btn btn-ghost btn-sm" id="hype-scan-btn" onclick="startHypeScan()"
+            title="Scan artists for Frozen/Iced/Room Temp/Hot/Fire hype rating">
+      Scan Hype
+    </button>
     <button class="view-toggle-btn" id="view-toggle-btn" onclick="toggleView()"
             title="Toggle compact / full view">
       <svg id="view-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -29,6 +33,19 @@
         <path d="M2 4h12v1.5H2V4zm0 3.25h12v1.5H2v-1.5zm0 3.25h12v1.5H2v-1.5z"/>
       </svg>
     </button>
+  </div>
+</div>
+
+{# ── Hype scan progress bar ── #}
+<div id="hype-progress" class="hype-progress" style="display:none;">
+  <div class="hype-progress-info">
+    <span id="hype-progress-text">0 / 0</span>
+    <span id="hype-progress-artist" class="hype-progress-artist"></span>
+  </div>
+  <div class="hype-progress-bar"><div class="hype-progress-fill" id="hype-progress-fill"></div></div>
+  <div class="hype-progress-actions">
+    <button class="btn btn-ghost btn-sm" id="hype-pause-btn" data-action="pause" onclick="pauseResumeHypeScan()">Pause</button>
+    <button class="btn btn-ghost btn-sm" onclick="cancelHypeScan()">Cancel</button>
   </div>
 </div>
 
@@ -432,5 +449,102 @@
     _applyViewState();
     _loadAllThumbs();
   }
+
+  // ── Hype scan ──────────────────────────────────────────────────
+  var HYPE_LABELS = {
+    frozen:    '❄ Frozen',
+    iced:      '🧊 Iced',
+    room_temp: '◻ Room Temp',
+    hot:       '🔥 Hot',
+    fire:      '🔥🔥 Fire'
+  };
+  var hypePollTimer = null;
+
+  function startHypeScan() {
+    console.log('[hype] start requested for list ' + LIST_ID);
+    fetch('/lists/' + LIST_ID + '/hype/start', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(handleHypeStatus)
+      .catch(function(err) { console.error('[hype] start error:', err); });
+  }
+
+  function pauseResumeHypeScan() {
+    var btn    = document.getElementById('hype-pause-btn');
+    var action = btn.dataset.action || 'pause';
+    fetch('/lists/' + LIST_ID + '/hype/' + action, { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(handleHypeStatus)
+      .catch(function(err) { console.error('[hype] ' + action + ' error:', err); });
+  }
+
+  function cancelHypeScan() {
+    fetch('/lists/' + LIST_ID + '/hype/cancel', { method: 'POST' })
+      .then(function(r) { return r.json(); })
+      .then(handleHypeStatus)
+      .catch(function(err) { console.error('[hype] cancel error:', err); });
+  }
+
+  function pollHypeStatus() {
+    fetch('/lists/' + LIST_ID + '/hype/status')
+      .then(function(r) { return r.json(); })
+      .then(handleHypeStatus)
+      .catch(function(err) { console.error('[hype] status error:', err); });
+  }
+
+  function handleHypeStatus(status) {
+    console.log('[hype] status=' + status.status + ' ' + status.done + '/' + status.total
+      + (status.current_artist ? ' current=' + status.current_artist : ''));
+
+    var box       = document.getElementById('hype-progress');
+    var fill      = document.getElementById('hype-progress-fill');
+    var text      = document.getElementById('hype-progress-text');
+    var artistEl  = document.getElementById('hype-progress-artist');
+    var pauseBtn  = document.getElementById('hype-pause-btn');
+
+    Object.keys(status.results || {}).forEach(function(rid) {
+      _applyHypeBadge(rid, status.results[rid]);
+    });
+
+    var pct = status.total ? Math.round(status.done / status.total * 100) : 0;
+
+    if (status.status === 'running' || status.status === 'paused') {
+      box.style.display = '';
+      fill.style.width = pct + '%';
+      text.textContent = status.done + ' / ' + status.total;
+      artistEl.textContent = status.current_artist ? ('Scanning ' + status.current_artist + '…') : '';
+      pauseBtn.textContent = status.status === 'paused' ? 'Resume' : 'Pause';
+      pauseBtn.dataset.action = status.status === 'paused' ? 'resume' : 'pause';
+      if (!hypePollTimer) hypePollTimer = setInterval(pollHypeStatus, 1200);
+    } else {
+      if (hypePollTimer) { clearInterval(hypePollTimer); hypePollTimer = null; }
+      if (status.status === 'done' || status.status === 'cancelled') {
+        box.style.display = '';
+        fill.style.width = pct + '%';
+        text.textContent = status.done + ' / ' + status.total;
+        artistEl.textContent = status.status === 'done' ? 'Done' : 'Cancelled';
+        setTimeout(function() { box.style.display = 'none'; }, 2500);
+      } else {
+        box.style.display = 'none';
+      }
+    }
+  }
+
+  function _applyHypeBadge(releaseId, info) {
+    var item = document.getElementById('item-' + releaseId);
+    if (!item) return;
+    if (item.dataset.hypeTier === info.tier) return; // already applied
+    item.dataset.hypeTier = info.tier;
+    var row2 = item.querySelector('.ri-row2');
+    if (!row2) return;
+    var existing = row2.querySelector('.hype-badge');
+    if (existing) existing.remove();
+    var badge = document.createElement('span');
+    badge.className = 'hype-badge hype-' + info.tier.replace(/_/g, '-');
+    badge.textContent = HYPE_LABELS[info.tier] || info.tier;
+    row2.appendChild(badge);
+  }
+
+  // Resume polling if a scan was already running when this page loaded
+  pollHypeStatus();
 </script>
 {% endblock %}
