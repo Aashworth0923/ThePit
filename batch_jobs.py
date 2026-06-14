@@ -70,6 +70,16 @@ def record_fetch_releases(date_from, date_to, fetched_count, inserted_count):
     return job
 
 
+def record_batch_release(label, lines):
+    job = _new_job("batch_release", label, total=1)
+    for line in lines:
+        _log(job, line)
+    job["done"] = 1
+    job["status"] = "done"
+    job["finished_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    return job
+
+
 def start_fetch_art(release_ids):
     releases = db.get_releases_missing_art(release_ids)
     job = _new_job("fetch_art", "Album Art & Bio", total=len(releases))

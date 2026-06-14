@@ -10,12 +10,14 @@ for _stream in (sys.stdout, sys.stderr):
     except AttributeError:
         pass  # pythonw.exe has no real stdout — safe to ignore
 from collections import deque
+from datetime import date
 from flask import Flask, render_template, redirect, url_for, request, flash, send_from_directory, jsonify
 import db
 import metadata
 import hype_jobs
 import hype_scraper
 import batch_jobs
+import batch_release
 
 # ── Server-side log capture ───────────────────────────────────────────────────
 # All print() calls anywhere in the app are captured here and exposed
@@ -647,6 +649,90 @@ def get_releases():
         return redirect(url_for("releases"))
 
     return render_template("get_releases.html")
+
+
+@app.route("/batch-release", methods=["GET", "POST"])
+def batch_release_route():
+    if request.method == "POST":
+        try:
+            year = int(request.form.get("year", ""))
+            month = int(request.form.get("month", ""))
+            weeks = sorted(int(w) for w in request.form.getlist("weeks"))
+            genres = request.form.getlist("genres")
+            types = request.form.getlist("types")
+        except ValueError:
+            flash("Invalid month/year/week selection.", "error")
+            return redirect(url_for("batch_release_route"))
+
+        if not weeks:
+            flash("Select at least one week.", "error")
+            return redirect(url_for("batch_release_route"))
+
+        weeks_data = batch_release.get_month_weeks(year, month)
+        selected_ranges = [weeks_data[w - 1] for w in weeks]
+        overall_from = min(r[0] for r in selected_ranges).isoformat()
+        overall_to = max(r[1] for r in selected_ranges).isoformat()
+
+        try:
+            fetched = _scrape_subprocess(overall_from, overall_to)
+            inserted, release_ids = db.insert_releases(fetched)
+            batch_jobs.record_fetch_releases(overall_from, overall_to, len(fetched), inserted)
+            batch_jobs.start_fetch_art(release_ids)
+            batch_jobs.start_hype_scan(release_ids)
+
+            month_name = batch_release.MONTH_NAMES[month - 1]
+            folder_name = f"{month_name} {year}"
+            folder = db.get_or_create_folder(folder_name)
+
+            if genres:
+                genre_label = ", ".join(
+                    display for display, slug, _ in GENRE_MAP if slug in genres
+                )
+            else:
+                genre_label = "All Genres"
+
+            lines = []
+            for w in weeks:
+                start, end = weeks_data[w - 1]
+                week_releases = db.get_releases_by_date_range(start.isoformat(), end.isoformat())
+
+                filtered = []
+                for r in week_releases:
+                    if types and r["type"] not in types:
+                        continue
+                    if genres:
+                        release_slugs = set(_map_primary_genres(r["genre"]).split())
+                        if not release_slugs & set(genres):
+                            continue
+                    filtered.append(r)
+
+                list_name = f"{month_name} - Week {w} - {genre_label}"
+                lst = db.get_or_create_list(list_name)
+                db.assign_list_to_folder(lst["id"], folder["id"])
+                added = db.add_releases_to_list(lst["id"], [r["id"] for r in filtered])
+                lines.append(f"{list_name}: {added} new / {len(filtered)} matched")
+
+            batch_jobs.record_batch_release(f"Batch Release — {folder_name}", lines)
+            flash(f"Batch Release created for {folder_name}.", "success")
+        except Exception as e:
+            import traceback
+            print(f"[batch_release] ERROR: {e}", flush=True)
+            traceback.print_exc()
+            flash(f"Batch Release failed: {e}", "error")
+            return redirect(url_for("batch_release_route"))
+
+        return redirect(url_for("lists", folder=folder["id"]))
+
+    years = [date.today().year, date.today().year + 1]
+    return render_template(
+        "batch_release.html",
+        month_names=batch_release.MONTH_NAMES,
+        years=years,
+        current_year=date.today().year,
+        current_month=date.today().month,
+        genre_map=GENRE_MAP,
+        release_types=db.get_release_types(),
+    )
 
 
 @app.route("/release/<int:release_id>/meta")
