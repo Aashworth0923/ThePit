@@ -541,6 +541,7 @@ def _scrape_subprocess(date_from, date_to):
 
     env = os.environ.copy()
     env.setdefault("PLAYWRIGHT_BROWSERS_PATH", os.path.join(app_dir, "browsers"))
+    env["PYTHONIOENCODING"] = "utf-8"
 
     cmd = [sys.executable, script,
            "--from", date_from, "--to", date_to, "--out", out_path]
@@ -549,7 +550,7 @@ def _scrape_subprocess(date_from, date_to):
 
     proc = subprocess.run(
         cmd, env=env, cwd=app_dir,
-        capture_output=True, text=True, timeout=300,
+        capture_output=True, encoding="utf-8", timeout=300,
     )
 
     # Forward subprocess output to our debug log
