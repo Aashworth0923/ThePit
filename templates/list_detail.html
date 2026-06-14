@@ -568,11 +568,11 @@
 
       var label = document.createElement('div');
       label.className = 'rr-label';
-      label.appendChild(document.createTextNode('Hype Rating — '));
+      label.textContent = 'Hype Rating';
+
       var badgeCopy = document.createElement('span');
       badgeCopy.className = 'hype-badge hype-' + info.tier.replace(/_/g, '-');
       badgeCopy.textContent = HYPE_LABELS[info.tier] || info.tier;
-      label.appendChild(badgeCopy);
 
       var explainEl = document.createElement('div');
       explainEl.className = 'rr-hype-explain';
@@ -582,9 +582,14 @@
         return div.innerHTML;
       }).join('<br>');
 
+      var content = document.createElement('div');
+      content.className = 'rr-hype-content';
+      content.appendChild(badgeCopy);
+      content.appendChild(explainEl);
+
       block.innerHTML = '';
       block.appendChild(label);
-      block.appendChild(explainEl);
+      block.appendChild(content);
     }
   }
 
