@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Batch Release — The Pit{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Batch Release</h1>
+  <a href="{{ url_for('releases') }}" class="btn btn-ghost">&larr; Back</a>
+</div>
+
+<div class="card">
+  <p class="card-desc">
+    Pick a month and the Thursday-aligned week(s) you want, then optionally
+    filter by genre and release type. The Pit will fetch releases for those
+    dates, create a folder for the month, and create one list per selected
+    week.
+  </p>
+
+  <form method="POST" id="batch-release-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="month">Month</label>
+        <select id="month" name="month">
+          {% for name in month_names %}
+          <option value="{{ loop.index }}" {% if loop.index == current_month %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="year">Year</label>
+        <select id="year" name="year">
+          {% for y in years %}
+          <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 20px;">
+      <label>Weeks</label>
+      <div class="checkbox-group" id="weeks-group">
+        {% for w in range(1, 5) %}
+        <label class="checkbox-row">
+          <input type="checkbox" name="weeks" value="{{ w }}">
+          <span>Week {{ w }}</span>
+          <span class="week-range" id="week-range-{{ w }}"></span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 20px;">
+      <label>Genres (none = all genres)</label>
+      <div class="checkbox-group">
+        {% for display, slug, _ in genre_map %}
+        <label class="checkbox-row">
+          <input type="checkbox" name="genres" value="{{ slug }}">
+          <span>{{ display }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 20px;">
+      <label>Types (none = all types)</label>
+      <div class="checkbox-group">
+        {% for t in release_types %}
+        <label class="checkbox-row">
+          <input type="checkbox" name="types" value="{{ t }}">
+          <span>{{ t }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button type="submit" class="btn btn-primary" id="batch-release-btn">
+        Create Batch Release
+      </button>
+      <span id="loading-msg" class="loading-msg" style="display:none;">
+        Fetching… this can take a minute, please wait.
+      </span>
+    </div>
+  </form>
+</div>
+
+<script>
+  function getMonthWeeks(year, month) {
+    // month is 1-12
+    const first = new Date(year, month - 1, 1);
+    const last  = new Date(year, month, 0);
+
+    // JS getDay(): Sunday=0 ... Thursday=4
+    const daysToThu = (4 - first.getDay() + 7) % 7;
+    const firstThu = new Date(first);
+    firstThu.setDate(first.getDate() + daysToThu);
+
+    const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+
+    const w1 = [first, firstThu];
+    const w2start = addDays(firstThu, 1);
+    const w2end = addDays(w2start, 6);
+    const w3start = addDays(w2end, 1);
+    const w3end = addDays(w3start, 6);
+    const w4start = addDays(w3end, 1);
+    const w4 = [w4start, last];
+
+    return [w1, [w2start, w2end], [w3start, w3end], w4];
+  }
+
+  function fmt(d) {
+    return (d.getMonth() + 1) + '/' + d.getDate();
+  }
+
+  function updateWeekRanges() {
+    const month = parseInt(document.getElementById('month').value, 10);
+    const year = parseInt(document.getElementById('year').value, 10);
+    const weeks = getMonthWeeks(year, month);
+    weeks.forEach((range, i) => {
+      const el = document.getElementById('week-range-' + (i + 1));
+      if (el) el.textContent = '(' + fmt(range[0]) + ' – ' + fmt(range[1]) + ')';
+    });
+  }
+
+  document.getElementById('month').addEventListener('change', updateWeekRanges);
+  document.getElementById('year').addEventListener('change', updateWeekRanges);
+  updateWeekRanges();
+
+  document.getElementById('batch-release-form').addEventListener('submit', function () {
+    const btn = document.getElementById('batch-release-btn');
+    const msg = document.getElementById('loading-msg');
+    btn.disabled = true;
+    btn.textContent = 'Working…';
+    msg.style.display = 'inline';
+  });
+</script>
+{% endblock %}

@@ -232,6 +232,43 @@ def create_list(name, description=""):
         conn.close()
 
 
+def get_or_create_list(name, description=""):
+    """Return the active list with this name, creating it if needed."""
+    name = name.strip()
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM lists WHERE name = ? AND deleted_at IS NULL", (name,)
+        ).fetchone()
+        if row:
+            return row
+    finally:
+        conn.close()
+
+    create_list(name, description)
+
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT * FROM lists WHERE name = ? AND deleted_at IS NULL", (name,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def get_releases_by_date_range(date_from, date_to):
+    """Return releases (id, artist, album, type, genre, release_date) in a date range."""
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT id, artist, album, type, genre, release_date FROM releases "
+            "WHERE release_date BETWEEN ? AND ? ORDER BY release_date, artist",
+            (date_from, date_to),
+        ).fetchall()
+    finally:
+        conn.close()
+
+
 def get_list_by_id(list_id):
     conn = get_db()
     try:
@@ -508,6 +545,22 @@ def create_folder(name):
         ).fetchone()
     finally:
         conn.close()
+
+
+def get_or_create_folder(name):
+    """Return the active folder with this name, creating it if needed."""
+    name = name.strip()
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM folders WHERE name = ? AND deleted_at IS NULL", (name,)
+        ).fetchone()
+        if row:
+            return row
+    finally:
+        conn.close()
+
+    return create_folder(name)
 
 
 def delete_folder(folder_id):
